@@ -1,0 +1,31 @@
+// prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// 🏃 산악 마라톤(트레일 러닝) 선수 및 기록 모델
+model TrailRunner {
+  id          Int       @id @default(autoincrement())
+  bibNumber   String    @unique // 배번
+  name        String?           // 이름
+  
+  // 선수 정보
+  phone       String?           // 폰번호
+  gender      String?           // 남여구분
+  birthYear   Int?              // 생년
+  affiliation String?           // 소속
+  note        String?           // 비고(기타사항)
+
+  // 시간 기록
+  startTime   DateTime?         // 출발 시간
+  finishTime  DateTime?         // 도착 시간
+  createdAt   DateTime  @default(now())
+
+  @@map("trail_runners") // DB 테이블 이름을 trail_runners로 설정
+}

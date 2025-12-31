@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>부천트라이 트레일러닝 계측</title>
+    <style>
+        body { font-family: sans-serif; background: #f0f2f5; margin: 0; padding: 20px; }
+        .container { max-width: 600px; margin: 0 auto; }
+        .input-box { background: #fff; padding: 20px; border-radius: 12px; text-align: center; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        input { width: 80%; font-size: 30px; padding: 10px; text-align: center; border: 2px solid #0A317E; border-radius: 8px; margin-bottom: 10px; }
+        .list-section { margin-top: 20px; }
+        table { width: 100%; background: #fff; border-collapse: collapse; border-radius: 8px; overflow: hidden; }
+        th, td { padding: 12px; border-bottom: 1px solid #eee; text-align: center; }
+        th { background: #0A317E; color: white; }
+        .finished { background-color: #d4edda; animation: highlight 1s ease; }
+        @keyframes highlight { from { background: #fff3cd; } to { background: #d4edda; } }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="input-box">
+            <h2>🏁 배번 입력</h2>
+            <input type="number" id="bibInput" inputmode="numeric" placeholder="000" autofocus>
+            <p>번호 입력 후 Enter를 누르세요</p>
+        </div>
+
+        <div class="list-section">
+            <h3>🏃 실시간 도착 순위</h3>
+            <table>
+                <thead>
+                    <tr><th>배번</th><th>이름</th><th>기록</th></tr>
+                </thead>
+                <tbody id="resultTable"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+        const bibInput = document.getElementById('bibInput');
+        const resultTable = document.getElementById('resultTable');
+
+        // 초기 데이터 로드
+        fetch('/api/runners')
+            .then(res => res.json())
+            .then(runners => {
+                runners.filter(r => r.finishTime).forEach(r => addRow(r));
+            });
+
+        // 배번 입력 시 서버로 전송
+        bibInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && bibInput.value) {
+                socket.emit('runner_arrived', bibInput.value);
+                bibInput.value = '';
+            }
+        });
+
+        // 서버에서 업데이트 수신
+        socket.on('update_board', (runner) => {
+            addRow(runner, true);
+        });
+
+        socket.on('error_msg', (msg) => alert(msg));
+
+        function addRow(runner, isNew = false) {
+            const time = new Date(runner.finishTime).toLocaleTimeString('ko-KR', { hour12: false });
+            const row = `
+                <tr id="row-${runner.bibNumber}" class="${isNew ? 'finished' : ''}">
+                    <td>${runner.bibNumber}</td>
+                    <td>${runner.name || '-'}</td>
+                    <td>${time}</td>
+                </tr>`;
+            resultTable.insertAdjacentHTML('afterbegin', row);
+        }
+    </script>
+</body>
+</html>
