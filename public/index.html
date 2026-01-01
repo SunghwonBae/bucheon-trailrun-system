@@ -13,11 +13,12 @@
         .info-text { font-size: 0.9rem; color: #bdc3c7; }
         
         /* 버튼 스타일 통일 */
-        #startBtn, #resetBtn, #goAdminBtn, #finishBtn { 
+        #startBtn, #resetBtn, #goAdminBtn, #finishBtn, #playerBtn { 
             color: white; border: none; padding: 10px 20px; border-radius: 5px; 
             cursor: pointer; font-size: 1rem; margin: 5px; font-weight: bold;
         }
         #startBtn { background: #e74c3c; }
+        #playerBtn { background: #27ae60; }
         #resetBtn { background: #95a5a6; }
         #goAdminBtn { background: #34495e; }
         #finishBtn { background: #8e44ad; }
@@ -48,9 +49,10 @@
     <div class="timer-box">
         <div class="info-text">경과 시간</div>
         <div id="timerDisplay">READY</div>
-        <div id="startTimeInfo" class="info-text">-</div>
+        <div id="startTimeInfo" class="info-text">[선수들은 GPX동의를 해주시고 관리자는 관리자설정 버튼으로 로그인부탁드립니다.]</div>
         
         <div style="margin-top: 15px;">
+            <button id="playerBtn" onclick="location.href='/player.html'">📱 선수GPX동의</button>
             <button id="startBtn" onclick="startRace()">🔫 대회 출발</button>
             <button id="resetBtn" onclick="resetRace()">🔄 전체 초기화</button>
             <button id="goAdminBtn" onclick="goToAdmin()">⚙️ 관리자 설정</button>
@@ -63,7 +65,7 @@
         <span id="currentRadiusInfo" style="font-weight:bold; color:#2c3e50;">20m</span>
     </div>
 
-    <div class="input-box">
+    <div id="finishBibInput" class="input-box" style="display: none;">
         <h3>🏁 완주배번 입력후 Enter</h3>
         <input type="number" id="bibInput" inputmode="numeric" placeholder="000">
     </div>
@@ -118,13 +120,24 @@
         document.title = `${currentYear} 부천트라이 산악마라톤대회`;
         document.getElementById('raceTitle').innerText = `🏃 ${currentYear} 부천트라이 산악마라톤대회`;
 
+        // [보안] 관리자 비밀번호 (서버에서 수신)
+        let adminPassword = "LOADING"; 
+        socket.on('receive_password', (pw) => {
+            adminPassword = pw;
+        });
+
+        // [UI] 관리자 권한 확인 (로그인 후 finishBibInput 표시)
+        if (localStorage.getItem('admin_access') === 'granted') {
+            document.getElementById('finishBibInput').style.display = 'block';
+        }
+
         let raceStartTime = null;
         let timerInterval = null;
 
         // 1. 대회 출발
         function startRace() {
             const password = prompt("대회 출발을 위해 비밀번호를 입력하세요. 이미한번 출발했으면 관리자페이지에 기록초기화후 다시 출발해주세요.");
-            if (password === "1234") {
+            if (password === adminPassword) {
                 socket.emit('start_race');
             } else {
                 alert("비밀번호가 틀렸습니다.");
@@ -134,7 +147,7 @@
         // 관리자 페이지 이동 시 비번 확인 및 토큰 부여
         function goToAdmin() {
             const password = prompt("관리자 페이지 비밀번호를 입력하세요.");
-            if (password === "1234") {
+            if (password === adminPassword) {
                 // 간단한 세션 토큰 역할을 할 값을 로컬 스토리지에 저장
                 localStorage.setItem('admin_access', 'granted');
                 location.href = '/admin.html';
@@ -146,7 +159,7 @@
         // 대회 종료
         function finishRace() {
             const password = prompt("대회 종료를 위해 비밀번호를 입력하세요.");
-            if (password === "1234") {
+            if (password === adminPassword) {
                 if (timerInterval) clearInterval(timerInterval);
                 document.querySelector('.timer-box .info-text').innerText = "대회가 종료되었습니다.";
                 socket.emit('finish_race'); // 서버에 미완주자 일괄 처리 요청
@@ -158,8 +171,8 @@
         // 리셋 함수
         function resetRace() {
             if(confirm("⚠️ 경고: 모든 선수의 출발 및 도착 기록이 삭제됩니다. 정말 초기화하시겠습니까?")) {
-                const password = prompt("관리자 비밀번호를 입력하세요 (임시: 1234)");
-                if(password === "1234") { // 간단한 보안 장치
+                const password = prompt("관리자 비밀번호를 입력하세요");
+                if(password === adminPassword) { // 간단한 보안 장치
                     socket.emit('reset_race');
                 } else {
                     alert("비밀번호가 틀렸습니다.");

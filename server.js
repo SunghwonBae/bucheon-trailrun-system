@@ -70,6 +70,11 @@ async function getRaceData() {
 io.on('connection', async (socket) => {
     console.log('접속:', socket.id);
 
+    // [보안] 관리자 비밀번호 생성 및 전송 (YYYYMMDD)
+    const today = new Date();
+    const adminPw = `${today.getFullYear()}${String(today.getMonth() + 1).padStart(2, '0')}${String(today.getDate()).padStart(2, '0')}`;
+    socket.emit('receive_password', adminPw);
+
     // 접속 시 현재 설정값 전송
     socket.emit('current_settings', { rankLimit, seniorYear, goalRadius, finishLine: FINISH_LINE });
 
