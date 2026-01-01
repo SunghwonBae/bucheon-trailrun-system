@@ -101,9 +101,9 @@
     <div class="header-section">
         <h2>🎒 할 일 보물창고</h2>
         <div>
-            <button id="momBtn" onclick="toggleMomLogin()" class="btn-star">⭐ 별표시</button>
-            <button onclick="downloadScheduleExcel()" class="btn-excel">📊 엑셀 다운</button>
-            <button onclick="openModal()" class="btn-add-todo">➕ 새 할일</button>
+            <button id="momBtn" onclick="toggleMomLogin()" class="btn-star">⭐별</button>
+            <button onclick="downloadScheduleExcel()" class="btn-excel">📊엑셀</button>
+            <button onclick="openModal()" class="btn-add-todo">+할일</button>
         </div>
     </div>
 
@@ -499,10 +499,10 @@
     function updateMomBtnUI() {
         const btn = document.getElementById('momBtn');
         if(isMomMode) {
-            btn.innerText = "🔒 맘로그아웃";
+            btn.innerText = "🔒OUT";
             btn.style.background = "#fab1a0"; 
         } else {
-            btn.innerText = "⭐ 별표시";
+            btn.innerText = "⭐별";
             btn.style.background = "#f1c40f"; 
         }
     }
@@ -603,15 +603,6 @@
     }
 
     function openModal() { document.getElementById('todoModal').style.display = 'flex'; }
-    function closeModal() { document.getElementById('todoModal').style.display = 'none'; }
-    function selectColor(el) {
-        document.querySelectorAll('.color-circle').forEach(c => c.classList.remove('selected'));
-        el.classList.add('selected');
-        document.getElementById('selectedColor').value = el.style.backgroundColor; 
-    }
-</script>
-</body>
-</html>ction openModal() { document.getElementById('todoModal').style.display = 'flex'; }
     function closeModal() { document.getElementById('todoModal').style.display = 'none'; }
     function selectColor(el) {
         document.querySelectorAll('.color-circle').forEach(c => c.classList.remove('selected'));
