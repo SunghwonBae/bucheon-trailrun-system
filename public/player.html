@@ -36,6 +36,17 @@
         #status { margin-top: 25px; font-size: 1.1rem; color: #7f8c8d; }
         .tracking-on { color: #27ae60; font-weight: bold; animation: blink 1.5s infinite; }
         @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
+
+        /* 모바일 반응형 스타일 */
+        @media (max-width: 768px) {
+            h1 { font-size: 1.4rem; margin: 15px 0; }
+            .notice-banner { font-size: 0.9rem; padding: 12px; text-align: left; }
+            .content { padding: 15px 10px; }
+            .card { padding: 20px 15px; }
+            #timerDisplay, #distNum { font-size: 2.8rem !important; }
+            .btn-start { padding: 15px 0; font-size: 1.1rem; width: 100%; }
+            input { width: 90%; font-size: 1.5rem; }
+        }
     </style>
 </head>
 <body>
@@ -44,7 +55,7 @@
         <span>⚠️ 자동 골인 시스템 안내</span>
         1. <strong>공식 기록 우선:</strong> GPX 기록은 보완용이며, 최종 순위는 <strong>심판의 수동 기록이 우선</strong>합니다.<br>
         2. <strong>활성화 조건:</strong> 출발 버튼 입력 후 <strong>30분이 경과해야</strong> 자동 골인이 작동합니다.<br>
-        3. <strong>인식 범위:</strong> 골인 지점 <strong>반경 20m 이내</strong> 진입 시 자동 감지됩니다.<br>
+        3. <strong>인식 범위:</strong> 골인 지점 <strong>반경 <span class="radius-val">20</span>m 이내</strong> 진입 시 자동 감지됩니다.<br>
         4. <strong>주의 사항:</strong> 정확한 측정을 위해 스마트폰의 <strong>화면을 끄지 말고</strong> 휴대해 주세요.
     </div>
 
@@ -52,7 +63,7 @@
         <div class="card">
         <h2>🏁 자동 체크인 대기</h2>
             <div id="statusMessage" style="margin-bottom: 15px; font-size: 0.9rem; color: #2980b9; background: #ebf5fb; padding: 10px; border-radius: 8px;">
-                배번 입력 후 추적을 시작하면,<br><strong>출발 30분 후부터</strong> 20m 반경 진입 시 골인 처리됩니다.
+                배번 입력 후 추적을 시작하면,<br><strong>출발 30분 후부터</strong> <span class="radius-val">20</span>m 반경 진입 시 골인 처리됩니다.
             </div>
 
             <input type="number" id="bibNumber" placeholder="배번 입력" inputmode="numeric">
@@ -75,7 +86,7 @@
     <div id="distanceDisplay" style="display:none; margin: 20px 0; padding: 20px; background: #2c3e50; color: #f1c40f; border-radius: 15px;">
         <div style="font-size: 1rem; color: #fff;">골인 지점까지 남은 거리</div>
         <div style="font-size: 3.5rem; font-weight: bold;"><span id="distNum">--</span>m</div>
-        <div id="radiusGuide" style="font-size: 0.9rem; color: #bdc3c7; margin-top:5px;">(20m 이내 진입 시 자동 골인)</div>
+        <div id="radiusGuide" style="font-size: 0.9rem; color: #bdc3c7; margin-top:5px;">(<span class="radius-val">20</span>m 이내 진입 시 자동 골인)</div>
     </div>
 
     <script src="/socket.io/socket.io.js"></script>
@@ -84,6 +95,7 @@
         let watchId = null;
         let raceStartTime = null;
         let timerInterval = null;
+        let currentRadius = 20; // 기본값
 
                 // [자동 설정] 현재 연도 적용
         const currentYear = new Date().getFullYear();
@@ -138,16 +150,31 @@
             distNum.innerText = data.distance;
 
             // 거리에 따른 색상 변화 (가까워지면 초록색)
-            if(data.distance <= 20) {
+            if(data.distance <= currentRadius) {
                 distNum.style.color = "#2ecc71";
             } else {
                 distNum.style.color = "#f1c40f";
             }
         });
 
-        socket.on('radius_changed', (val) => {
-            document.getElementById('radiusGuide').innerText = `(${val}m 이내 진입 시 자동 골인)`;
+        // [설정] 초기 설정값 수신
+        socket.on('current_settings', (data) => {
+            if(data.goalRadius) {
+                currentRadius = data.goalRadius;
+                updateRadiusUI(currentRadius);
+            }
         });
+
+        socket.on('radius_changed', (val) => {
+            currentRadius = val;
+            updateRadiusUI(val);
+        });
+
+        function updateRadiusUI(val) {
+            document.querySelectorAll('.radius-val').forEach(el => {
+                el.innerText = val;
+            });
+        }
 
         // [타이머] 대회 상태 수신
         socket.on('race_status', (data) => {

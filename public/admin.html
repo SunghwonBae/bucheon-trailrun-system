@@ -2,6 +2,7 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>부천트라이 산악마라톤대회 관리자페이지</title>
     <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
     <script src="/socket.io/socket.io.js"></script>
@@ -31,6 +32,26 @@
         .btn-home { background: #2980b9; }
         .btn-cert { background: #f39c12; }
         #map { width: 100%; height: 400px; margin-bottom: 20px; border: 1px solid #ccc; border-radius: 5px; }
+
+        /* 모바일 반응형 스타일 */
+        @media (max-width: 768px) {
+            body { padding: 10px; }
+            h1 { font-size: 1.3rem; margin-bottom: 15px; }
+            
+            /* 컨트롤 패널 세로 정렬 */
+            .controls { flex-direction: column; align-items: stretch; gap: 10px; }
+            .controls > button, .controls > div { width: 100%; margin: 0; }
+            .controls > div { 
+                border-left: none !important; padding-left: 0 !important; 
+                flex-direction: column; align-items: stretch; 
+            }
+            .controls input, .controls select, .controls label { width: 100%; box-sizing: border-box; margin: 5px 0; text-align: center; }
+            
+            /* 테이블 가로 스크롤 처리 */
+            #runnerTable { display: block; overflow-x: auto; white-space: nowrap; }
+            th, td { padding: 8px 5px; font-size: 0.9rem; }
+            .btn { padding: 12px; font-size: 1rem; }
+        }
     </style>
 </head>
 <body>
@@ -38,7 +59,7 @@
     <h1 id="raceTitle">🏃 부천트라이 산악마라톤대회 관리자페이지</h1>
 
     <div class="controls">
-        <button class="btn btn-add" onclick="addNewRow()">➕ 신규등록</button>
+        <button class="btn btn-add" onclick="addNewRow()">➕ 선수추가</button>
         <button class="btn btn-excel" onclick="downloadExcel()">📊 전체목록 액셀다운로드</button>
         <button class="btn btn-template" onclick="downloadTemplate()">📥 업로드템플릿다운</button>
     
@@ -86,7 +107,7 @@
                 <th onclick="sortTable(5)">연락처 <span id="sort-icon-5">↕</span></th>
                 <th onclick="sortTable(6)">입금 <span id="sort-icon-6">↕</span></th>
                 <th onclick="sortTable(7)">기록 <span id="sort-icon-7">↕</span></th>
-                <th onclick="sortTable(8)">인쇄수 <span id="sort-icon-8">↕</span></th>
+                <th onclick="sortTable(8)">기록증 <span id="sort-icon-8">↕</span></th>
                 <th>관리</th>
             </tr>
         </thead>
@@ -225,7 +246,7 @@
                     <td>
                         <span id="print-count-${r.id}">${r.printCount}</span>회
                         ${r.finishTime ? 
-                            `<button onclick="printCertificate(${r.id}, '${r.bibNumber}')">🖨️ 인쇄</button>` : 
+                            `<button onclick="printCertificate(${r.id}, '${r.bibNumber}')">🖨️출력</button>` : 
                             `<span style="color:#ccc; font-size:0.8rem;">골인전</span>`
                         }
                     </td>

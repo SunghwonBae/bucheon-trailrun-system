@@ -43,6 +43,26 @@
         
         /* 1,2,3위 강조 */
         tr:nth-child(1) td { font-weight: bold; color: #d35400; } 
+
+        /* 모바일 반응형 스타일 */
+        @media (max-width: 768px) {
+            h1 { font-size: 1.5rem; margin: 15px 0; }
+            #timerDisplay { font-size: 2.5rem; }
+            .timer-box { padding: 15px; }
+            .rank-card { min-width: 100%; margin-bottom: 10px; }
+            th, td { padding: 8px 4px; font-size: 0.9rem; } /* 폰트 크기 유지 */
+            
+            /* 버튼을 2열로 배치하여 터치 영역 확보 */
+            .timer-box > div:last-child {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 8px;
+            }
+            #startBtn, #resetBtn, #goAdminBtn, #finishBtn, #playerBtn, #logoutBtn {
+                margin: 0; width: 100%; font-size: 0.95rem; padding: 12px 0;
+            }
+            input { width: 120px; font-size: 1.5rem; }
+        }
     </style>
 </head>
 <body>
@@ -101,7 +121,7 @@
             <table>
                 <thead>
                     <tr>
-                        <th>순위</th>
+                        <th> </th>
                         <th>배번</th>
                         <th>이름</th>
                         <th>공식 기록 (심판)</th>
@@ -318,6 +338,7 @@
         function renderAllFinishedTable(elementId, runners) {
             const tbody = document.getElementById(elementId);
             tbody.innerHTML = '';
+            const totalCount = runners.length;
             runners.forEach((r, index) => {
                 // 공식 기록 계산
                 const manualRecord = r.finishTime ? 
@@ -328,7 +349,7 @@
                     new Date(new Date(r.autoFinishTime) - new Date(r.startTime)).toISOString().substr(11, 8) : "-";
 
                 const row = `<tr>
-                    <td>${index + 1}</td>
+                    <td>${totalCount - index}</td>
                     <td>${r.bibNumber}</td>
                     <td>${r.name}</td>
                     <td style="font-weight:bold; color:#2c3e50;">${manualRecord}</td>
