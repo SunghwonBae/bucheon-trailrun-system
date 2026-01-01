@@ -67,6 +67,11 @@
         </div>
     </div>
   
+    <div id="timerBox" style="display:none; margin: 20px 0; padding: 20px; background: #2c3e50; color: #fff; border-radius: 15px;">
+        <div style="font-size: 1rem; color: #bdc3c7;">경과 시간</div>
+        <div id="timerDisplay" style="font-size: 3.5rem; font-weight: bold; font-variant-numeric: tabular-nums;">00:00:00</div>
+    </div>
+
     <div id="distanceDisplay" style="display:none; margin: 20px 0; padding: 20px; background: #2c3e50; color: #f1c40f; border-radius: 15px;">
         <div style="font-size: 1rem; color: #fff;">골인 지점까지 남은 거리</div>
         <div style="font-size: 3.5rem; font-weight: bold;"><span id="distNum">--</span>m</div>
@@ -77,6 +82,8 @@
     <script>
         const socket = io();
         let watchId = null;
+        let raceStartTime = null;
+        let timerInterval = null;
 
                 // [자동 설정] 현재 연도 적용
         const currentYear = new Date().getFullYear();
@@ -141,6 +148,37 @@
         socket.on('radius_changed', (val) => {
             document.getElementById('radiusGuide').innerText = `(${val}m 이내 진입 시 자동 골인)`;
         });
+
+        // [타이머] 대회 상태 수신
+        socket.on('race_status', (data) => {
+            if (data.isStarted) {
+                raceStartTime = new Date(data.startTime);
+                document.getElementById('timerBox').style.display = 'block';
+
+                if (data.isFinished) {
+                    document.querySelector('#timerBox div:first-child').innerText = "대회가 종료되었습니다.";
+                    updateTimer();
+                    return;
+                }
+
+                if (timerInterval) clearInterval(timerInterval);
+                timerInterval = setInterval(updateTimer, 1000);
+                updateTimer();
+            }
+        });
+
+        function updateTimer() {
+            if (!raceStartTime) return;
+            const now = new Date();
+            const diff = now - raceStartTime;
+            
+            const h = Math.floor(diff / (1000 * 60 * 60));
+            const m = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+            const s = Math.floor((diff % (1000 * 60)) / 1000);
+
+            document.getElementById('timerDisplay').innerText = 
+                `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+        }
     </script>
 </body>
 </html>

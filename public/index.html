@@ -13,7 +13,7 @@
         .info-text { font-size: 0.9rem; color: #bdc3c7; }
         
         /* 버튼 스타일 통일 */
-        #startBtn, #resetBtn, #goAdminBtn, #finishBtn, #playerBtn { 
+        #startBtn, #resetBtn, #goAdminBtn, #finishBtn, #playerBtn, #logoutBtn { 
             color: white; border: none; padding: 10px 20px; border-radius: 5px; 
             cursor: pointer; font-size: 1rem; margin: 5px; font-weight: bold;
         }
@@ -21,6 +21,7 @@
         #playerBtn { background: #27ae60; }
         #resetBtn { background: #95a5a6; }
         #goAdminBtn { background: #34495e; }
+        #logoutBtn { background: #7f8c8d; }
         #finishBtn { background: #8e44ad; }
 
         /* 입력 섹션 */
@@ -56,6 +57,7 @@
             <button id="startBtn" onclick="startRace()">🔫 대회 출발</button>
             <button id="resetBtn" onclick="resetRace()">🔄 전체 초기화</button>
             <button id="goAdminBtn" onclick="goToAdmin()">⚙️ 관리자 설정</button>
+            <button id="logoutBtn" onclick="logoutAdmin()" style="display: none;">🔓 관리자 로그아웃</button>
             <button id="finishBtn" onclick="finishRace()">🏁 대회 종료</button>
         </div>
     </div>
@@ -127,8 +129,13 @@
         });
 
         // [UI] 관리자 권한 확인 (로그인 후 finishBibInput 표시)
-        if (localStorage.getItem('admin_access') === 'granted') {
+        const isAdmin = localStorage.getItem('admin_access') === 'granted';
+        if (isAdmin) {
             document.getElementById('finishBibInput').style.display = 'block';
+            document.getElementById('logoutBtn').style.display = 'inline-block';
+        } else {
+            document.getElementById('finishBibInput').style.display = 'none';
+            document.getElementById('logoutBtn').style.display = 'none';
         }
 
         let raceStartTime = null;
@@ -162,6 +169,12 @@
             } else {
                 alert("권한이 없습니다.");
             }
+        }
+
+        // 관리자 로그아웃
+        function logoutAdmin() {
+            localStorage.removeItem('admin_access');
+            location.reload();
         }
 
         // 대회 종료
