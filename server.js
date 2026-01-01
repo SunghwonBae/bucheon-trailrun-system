@@ -18,6 +18,9 @@ const yearCondition = { gte: startOfYear, lt: endOfYear };
 app.use(express.static('public'));
 
 let goalRadius = 20; // 기본값 20m
+let rankLimit = 5;   // 기본값 5위까지
+let seniorYear = currentYear - 48; // 기본값: 2026년 기준 1978년생 (만 48세)
+let FINISH_LINE = { lat: 37.503, lng: 126.795 }; // [변경] 골인 지점 (가변)
 
 // server.js 상단에 좌표 계산 함수 추가
 function getDistance(lat1, lon1, lat2, lon2) {
@@ -31,25 +34,22 @@ function getDistance(lat1, lon1, lat2, lon2) {
     return R * c; // 거리(m) 반환
 }
 
-// 골인 지점 설정 (부천종합운동장 입구 근처 예시 - 실제 좌표로 수정 필요)
-const FINISH_LINE = { lat: 37.503, lng: 126.795 }; 
-
 
 
 // [함수] 모든 대회 데이터(입상자, 미골인자, 전체 골인자) 가져오기
 async function getRaceData() {
     // 1. 부문별 입상자 (Top 5)
     const maleSenior = await prisma.trailRunner.findMany({
-        where: { gender: '남', birthYear: { lte: 1978 }, finishTime: { not: null }, createdAt: yearCondition },
-        orderBy: { finishTime: 'asc' }, take: 5
+        where: { gender: '남', birthYear: { lte: seniorYear }, finishTime: { not: null }, createdAt: yearCondition },
+        orderBy: { finishTime: 'asc' }, take: rankLimit
     });
     const maleJunior = await prisma.trailRunner.findMany({
-        where: { gender: '남', birthYear: { gte: 1979 }, finishTime: { not: null }, createdAt: yearCondition },
-        orderBy: { finishTime: 'asc' }, take: 5
+        where: { gender: '남', birthYear: { gte: seniorYear + 1 }, finishTime: { not: null }, createdAt: yearCondition },
+        orderBy: { finishTime: 'asc' }, take: rankLimit
     });
     const female = await prisma.trailRunner.findMany({
         where: { gender: '여', finishTime: { not: null }, createdAt: yearCondition },
-        orderBy: { finishTime: 'asc' }, take: 5
+        orderBy: { finishTime: 'asc' }, take: rankLimit
     });
 
     // 2. 미골인자 목록 (출발은 했으나 도착 안 함)
@@ -69,6 +69,9 @@ async function getRaceData() {
 
 io.on('connection', async (socket) => {
     console.log('접속:', socket.id);
+
+    // 접속 시 현재 설정값 전송
+    socket.emit('current_settings', { rankLimit, seniorYear, goalRadius, finishLine: FINISH_LINE });
 
     // 1. 접속 시 현재 대회 상태 전송 (이미 출발했는지 확인)
     const firstRunner = await prisma.trailRunner.findFirst({
@@ -184,6 +187,25 @@ io.on('connection', async (socket) => {
     socket.on('update_radius', (newRadius) => {
         goalRadius = Number(newRadius);
         io.emit('radius_changed', goalRadius); // 모든 관리자에게 알림
+    });
+
+    // [추가] 골인 지점 변경 이벤트
+    socket.on('update_finish_line', (coords) => {
+        FINISH_LINE = coords;
+        io.emit('finish_line_changed', FINISH_LINE); // 모든 관리자에게 알림
+    });
+
+    // [추가] 대회 설정(순위, 장년기준) 변경 이벤트
+    socket.on('update_race_settings', async (data) => {
+        if (data.rankLimit) rankLimit = Number(data.rankLimit);
+        if (data.seniorYear) seniorYear = Number(data.seniorYear);
+        
+        // 변경된 설정 브로드캐스트 (다른 관리자 화면 동기화)
+        io.emit('settings_changed', { rankLimit, seniorYear });
+        
+        // 변경된 기준에 맞춰 데이터 갱신 후 전송
+        const newData = await getRaceData();
+        io.emit('update_ui', newData);
     });
 
     // [API] 모든 선수 목록 가져오기

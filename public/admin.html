@@ -4,6 +4,9 @@
     <meta charset="UTF-8">
     <title>부천트라이 산악마라톤대회 관리자페이지</title>
     <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
+    <!-- Google Maps API: YOUR_API_KEY 부분을 실제 발급받은 키로 변경해야 지도가 보입니다. -->
+    <script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAXNCrPrwPfVgDHDLiumDwjYbkpV7UGRDE&callback=initMap"></script>
     <style>
         body { font-family: sans-serif; padding: 20px; }
         .controls { margin-bottom: 20px; display: flex; gap: 10px; align-items: center; }
@@ -26,6 +29,7 @@
         .btn-reset { background: #e74c3c; }
         .btn-home { background: #2980b9; }
         .btn-cert { background: #f39c12; }
+        #map { width: 100%; height: 400px; margin-bottom: 20px; border: 1px solid #ccc; border-radius: 5px; }
     </style>
 </head>
 <body>
@@ -45,7 +49,29 @@
         <button class="btn btn-reset" onclick="resetAllRecords()">🔄 모든 기록 초기화</button>
         <button class="btn btn-home" onclick="location.href='/'">🏠 전광판으로</button>
         <button class="btn btn-cert" onclick="location.href='/certificate.html'">🏆 상장 출력 화면</button>
+
+        <div style="border-left: 2px solid #ccc; padding-left: 10px; display: flex; align-items: center; gap: 5px;">
+            <select id="rankLimitSelect" onchange="updateSettings()" style="padding: 8px; border-radius: 5px; border: 1px solid #ccc;">
+                <option value="3" selected>3위까지</option>
+                <option value="4">4위까지</option>
+                <option value="5">5위까지</option>
+            </select>
+            <input type="number" id="seniorYearInput" onchange="updateSettings()" style="width: 60px; padding: 8px; text-align: center;" placeholder="년도">
+            <span style="font-size: 0.8rem; color: #666;">년생까지 장년</span>
+
+            <span style="margin-left: 10px; border-left: 1px solid #ccc; padding-left: 10px;">📡 반경:</span>
+            <select id="radiusSelect" onchange="updateRadius()" style="padding: 8px; border-radius: 5px; border: 1px solid #ccc;">
+                <option value="10">10m</option>
+                <option value="20" selected>20m</option>
+                <option value="30">30m</option>
+                <option value="40">40m</option>
+                <option value="50">50m</option>
+            </select>
+        </div>
     </div>
+
+    <!-- 지도 영역 -->
+    <div id="map"></div>
 
     <table id="runnerTable">
         <thead>
@@ -66,6 +92,86 @@
     </table>
 
     <script>
+        const socket = io();
+
+        // 구글 지도 관련 변수 및 함수
+        let map, marker;
+        let savedFinishLine = { lat: 37.503, lng: 126.795 }; // 기본값
+
+        function initMap() {
+            map = new google.maps.Map(document.getElementById("map"), {
+                zoom: 17,
+                center: savedFinishLine,
+            });
+
+            marker = new google.maps.Marker({
+                position: savedFinishLine,
+                map: map,
+                title: "골인 지점",
+                draggable: true // 마커 드래그 가능
+            });
+
+            // 지도 클릭 시
+            map.addListener("click", (e) => {
+                updateMarkerPosition(e.latLng.lat(), e.latLng.lng());
+            });
+
+            // 마커 드래그 종료 시
+            marker.addListener("dragend", (e) => {
+                updateMarkerPosition(e.latLng.lat(), e.latLng.lng());
+            });
+        }
+
+        function updateMarkerPosition(lat, lng) {
+            if(confirm("이 위치를 골인 지점으로 설정하시겠습니까?")) {
+                socket.emit('update_finish_line', { lat, lng });
+            } else {
+                marker.setPosition(savedFinishLine); // 취소 시 원래 위치로 복귀
+            }
+        }
+
+        // 초기 설정값 수신 및 동기화
+        socket.on('current_settings', (data) => {
+            if(data.rankLimit) document.getElementById('rankLimitSelect').value = data.rankLimit;
+            if(data.seniorYear) document.getElementById('seniorYearInput').value = data.seniorYear;
+            if(data.goalRadius) document.getElementById('radiusSelect').value = data.goalRadius;
+            if(data.finishLine) updateMapLocation(data.finishLine);
+        });
+
+        socket.on('settings_changed', (data) => {
+            if(data.rankLimit) document.getElementById('rankLimitSelect').value = data.rankLimit;
+            if(data.seniorYear) document.getElementById('seniorYearInput').value = data.seniorYear;
+        });
+
+        socket.on('radius_changed', (val) => {
+            document.getElementById('radiusSelect').value = val;
+        });
+
+        socket.on('finish_line_changed', (pos) => {
+            updateMapLocation(pos);
+            showToast("골인 지점이 변경되었습니다.");
+        });
+
+        function updateMapLocation(pos) {
+            savedFinishLine = pos;
+            if (map && marker) {
+                map.setCenter(pos);
+                marker.setPosition(pos);
+            }
+        }
+
+        function updateSettings() {
+            const rankLimit = document.getElementById('rankLimitSelect').value;
+            const seniorYear = document.getElementById('seniorYearInput').value;
+            socket.emit('update_race_settings', { rankLimit, seniorYear });
+            showToast("대회 설정이 저장되었습니다.");
+        }
+
+        function updateRadius() {
+            const val = document.getElementById('radiusSelect').value;
+            socket.emit('update_radius', val);
+            showToast("반경 설정이 변경되었습니다.");
+        }
 
         // 1. 직접 접속 차단 로직 (페이지 최상단)
         if (localStorage.getItem('admin_access') !== 'granted') {
@@ -135,7 +241,7 @@
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(body)
             });
-            showToast();
+            showToast("선수 정보가 수정되었습니다.");
         }
 
         // 기록증 인쇄 및 카운트 업데이트 함수
@@ -158,8 +264,9 @@
                 `width=${width},height=${height},top=${top},left=${left},scrollbars=yes,resizable=yes`);
         }
 
-        function showToast() {
+        function showToast(message = "수정되었습니다.") {
             const toast = document.getElementById('toast');
+            toast.innerText = message;
             toast.style.display = 'block';
             setTimeout(() => { toast.style.display = 'none'; }, 2000);
         }

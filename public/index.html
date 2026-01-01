@@ -59,15 +59,8 @@
     </div>
 
     <div class="input-box" style="margin-top:10px; background:#edf2f7;">
-        <strong>📡 GPX인식 자동골인 반경설정: </strong>
-        <select id="radiusSelect" onchange="changeRadius(this.value)" style="font-size:1rem; padding:5px;">
-            <option value="10">10m</option>
-            <option value="20" selected>20m</option>
-            <option value="30">30m</option>
-            <option value="40">40m</option>
-            <option value="50">50m</option>
-        </select>
-        <span id="currentRadiusInfo" style="margin-left:10px; color:#2c3e50;">(현재: 20m)</span>
+        <strong>📡 GPX인식 자동골인 반경: </strong>
+        <span id="currentRadiusInfo" style="font-weight:bold; color:#2c3e50;">20m</span>
     </div>
 
     <div class="input-box">
@@ -155,14 +148,6 @@
             }
         }
 
-        function changeRadius(val) {
-            const password = prompt("관리자 비밀번호를 입력하세요.");
-            if (password === "1234") {
-                socket.emit('update_radius', val);
-            } else {
-                alert("권한이 없습니다.");
-            }
-        }
         // 리셋 함수
         function resetRace() {
             if(confirm("⚠️ 경고: 모든 선수의 출발 및 도착 기록이 삭제됩니다. 정말 초기화하시겠습니까?")) {
@@ -175,9 +160,12 @@
             }
         }
 
+        socket.on('current_settings', (data) => {
+            if(data.goalRadius) document.getElementById('currentRadiusInfo').innerText = `${data.goalRadius}m`;
+        });
+
         socket.on('radius_changed', (val) => {
-            document.getElementById('radiusSelect').value = val;
-            document.getElementById('currentRadiusInfo').innerText = `(현재: ${val}m)`;
+            document.getElementById('currentRadiusInfo').innerText = `${val}m`;
         });
 
         // 서버로부터 리셋 완료 신호를 받으면 화면 새로고침
