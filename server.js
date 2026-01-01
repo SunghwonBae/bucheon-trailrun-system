@@ -83,7 +83,13 @@ io.on('connection', async (socket) => {
         where: { createdAt: yearCondition }
     });
     if (firstRunner && firstRunner.startTime) {
-        socket.emit('race_status', { startTime: firstRunner.startTime ,isStarted: true});
+        // [추가] 미완주자가 0명이면 대회 종료로 판단
+        const notFinishedCount = await prisma.trailRunner.count({
+            where: { startTime: { not: null }, finishTime: null, createdAt: yearCondition }
+        });
+        const isFinished = (notFinishedCount === 0);
+
+        socket.emit('race_status', { startTime: firstRunner.startTime, isStarted: true, isFinished });
     }
     
     const initialData = await getRaceData();

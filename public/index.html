@@ -208,6 +208,13 @@
                 // 2. 타이머 레이블 변경
                 document.getElementById('startTimeInfo').innerText = "출발 시각: " + raceStartTime.toLocaleTimeString();
                 
+                // [추가] 대회가 종료된 상태면 타이머 실행 안 함
+                if (data.isFinished) {
+                    document.querySelector('.timer-box .info-text').innerText = "대회가 종료되었습니다.";
+                    updateTimer(); // 현재 시간 기준으로 한 번 표시 후 정지
+                    return;
+                }
+
                 // 3. 타이머 가동
                 if (timerInterval) clearInterval(timerInterval);
                 timerInterval = setInterval(updateTimer, 1000);
