@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>부천트라이 - 자동 골인 시스템</title>
+    <style>
+        body { font-family: 'Pretendard', sans-serif; text-align: center; margin: 0; padding: 0; background: #f4f7f6; color: #333; }
+        
+        /* 최상단 공지사항 스타일 */
+        .notice-banner { 
+            background: #fff3cd; 
+            color: #856404; 
+            padding: 15px; 
+            border-bottom: 2px solid #ffeeba;
+            font-size: 0.95rem;
+            line-height: 1.5;
+            font-weight: bold;
+            text-align: left;
+        }
+        .notice-banner span { color: #d63031; display: block; margin-bottom: 5px; font-size: 1.1rem; }
+
+        .content { padding: 30px 20px; }
+        .card { background: white; padding: 30px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        
+        input { font-size: 1.8rem; width: 80%; padding: 12px; margin: 20px 0; border: 2px solid #ddd; border-radius: 10px; text-align: center; }
+        input:focus { border-color: #e67e22; outline: none; }
+
+        .btn-start { 
+            background: #e67e22; color: white; padding: 18px 40px; border: none; 
+            border-radius: 50px; font-size: 1.3rem; font-weight: bold; cursor: pointer;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1); transition: 0.3s;
+        }
+        .btn-start:disabled { background: #95a5a6; }
+
+        #status { margin-top: 25px; font-size: 1.1rem; color: #7f8c8d; }
+        .tracking-on { color: #27ae60; font-weight: bold; animation: blink 1.5s infinite; }
+        @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
+    </style>
+</head>
+<body>
+
+    <div class="notice-banner">
+        <span>⚠️ 자동 골인 시스템 안내</span>
+        1. <strong>공식 기록 우선:</strong> GPX 기록은 보완용이며, 최종 순위는 <strong>심판의 수동 기록이 우선</strong>합니다.<br>
+        2. <strong>활성화 조건:</strong> 출발 버튼 입력 후 <strong>30분이 경과해야</strong> 자동 골인이 작동합니다.<br>
+        3. <strong>인식 범위:</strong> 골인 지점 <strong>반경 20m 이내</strong> 진입 시 자동 감지됩니다.<br>
+        4. <strong>주의 사항:</strong> 정확한 측정을 위해 스마트폰의 <strong>화면을 끄지 말고</strong> 휴대해 주세요.
+    </div>
+
+    <div class="content">
+        <div class="card">
+        <h2>🏁 자동 체크인 대기</h2>
+            <div id="statusMessage" style="margin-bottom: 15px; font-size: 0.9rem; color: #2980b9; background: #ebf5fb; padding: 10px; border-radius: 8px;">
+                배번 입력 후 추적을 시작하면,<br><strong>출발 30분 후부터</strong> 20m 반경 진입 시 골인 처리됩니다.
+            </div>
+
+            <input type="number" id="bibNumber" placeholder="배번 입력" inputmode="numeric">
+            
+            <div style="margin: 20px 0; font-size: 0.85rem; color: #e74c3c;">
+                * 위치 추적 동의 시 위 안내 사항에 동의하는 것으로 간주합니다.
+            </div>
+
+            <button class="btn-start" id="startBtn" onclick="startTracking()">위치 추적 및 동의 시작</button>
+            
+            <div id="status">연결 대기 중...</div>
+        </div>
+    </div>
+  
+    <div id="distanceDisplay" style="display:none; margin: 20px 0; padding: 20px; background: #2c3e50; color: #f1c40f; border-radius: 15px;">
+        <div style="font-size: 1rem; color: #fff;">골인 지점까지 남은 거리</div>
+        <div style="font-size: 3.5rem; font-weight: bold;"><span id="distNum">--</span>m</div>
+        <div id="radiusGuide" style="font-size: 0.9rem; color: #bdc3c7; margin-top:5px;">(20m 이내 진입 시 자동 골인)</div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+        let watchId = null;
+
+        function startTracking() {
+            const bib = document.getElementById('bibNumber').value;
+            if(!bib) return alert("배번을 입력하세요!");
+
+            if (navigator.geolocation) {
+                // 정확도 높은 위치 추적 옵션
+                const options = {
+                    enableHighAccuracy: true,
+                    maximumAge: 0,
+                    timeout: 10000
+                };
+
+                watchId = navigator.geolocation.watchPosition((pos) => {
+                    const lat = pos.coords.latitude;
+                    const lng = pos.coords.longitude;
+                    
+                    document.getElementById('status').innerHTML = 
+                        `<div class="tracking-on">📍 위치 추적 가동 중</div>
+                         <div style="font-size: 0.8rem; margin-top: 5px;">화면을 끄지 말고 휴대해 주세요.</div>`;
+                    
+                    socket.emit('player_location', { 
+                        bibNumber: bib, 
+                        lat: lat, 
+                        lng: lng 
+                    });
+                }, (err) => {
+                    alert("GPS 수신에 실패했습니다. 설정에서 위치 권한을 허용해 주세요.");
+                }, options);
+                
+                document.getElementById('startBtn').disabled = true;
+                document.getElementById('startBtn').innerText = "추적 중 (공식 기록 대기)";
+            } else {
+                alert("이 브라우저는 위치 추적을 지원하지 않습니다.");
+            }
+        }
+
+        socket.on('auto_goal_success', (data) => {
+            alert(`[감지 성공] ${data.name}님, 골인 지점 통과가 확인되었습니다. 최종 순위는 심판 판정 후 확정됩니다.`);
+            location.href = "/"; 
+        });
+
+        socket.on('distance_update', (data) => {
+            const distBox = document.getElementById('distanceDisplay');
+            const distNum = document.getElementById('distNum');
+            distBox.style.display = 'block';
+            distNum.innerText = data.distance;
+
+            // 거리에 따른 색상 변화 (가까워지면 초록색)
+            if(data.distance <= 20) {
+                distNum.style.color = "#2ecc71";
+            } else {
+                distNum.style.color = "#f1c40f";
+            }
+        });
+
+        socket.on('radius_changed', (val) => {
+            document.getElementById('radiusGuide').innerText = `(${val}m 이내 진입 시 자동 골인)`;
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>개별 기록증 출력</title>
+    <style>
+        /* 기존 상장 디자인과 동일하게 설정 */
+        @media print {
+            body { margin: 0; }
+            button { display: none; }
+        }
+    </style>
+</head>
+<body>
+    <div class="certificate-paper" id="certPaper">
+        </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+        const urlParams = new URLSearchParams(window.location.search);
+        const bib = urlParams.get('bib');
+
+        // 페이지 로드 시 해당 선수 정보 요청
+        socket.emit('get_runner_info', bib);
+
+        socket.on('runner_info_res', (runner) => {
+            document.getElementById('certPaper').innerHTML = `
+                <h1>기 록 증</h1>
+                <h2>${runner.name} 선수</h2>
+                <p>배번: ${runner.bibNumber}</p>
+                <p>기록: ${runner.finishRecord}</p>
+                <p>위 선수는...</p>
+            `;
+            
+            // 데이터가 채워지면 즉시 인쇄 실행
+            setTimeout(() => {
+                window.print();
+                // 인쇄 후 창 닫기 (선택 사항)
+                // window.close(); 
+            }, 500);
+        });
+    </script>
+</body>
+</html>

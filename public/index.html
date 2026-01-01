@@ -2,36 +2,106 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>부천트라이 트레일러닝 계측</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>부천트라이 트레일러닝</title>
     <style>
-        body { font-family: sans-serif; background: #f0f2f5; margin: 0; padding: 20px; }
-        .container { max-width: 600px; margin: 0 auto; }
-        .input-box { background: #fff; padding: 20px; border-radius: 12px; text-align: center; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-        input { width: 80%; font-size: 30px; padding: 10px; text-align: center; border: 2px solid #0A317E; border-radius: 8px; margin-bottom: 10px; }
-        .list-section { margin-top: 20px; }
-        table { width: 100%; background: #fff; border-collapse: collapse; border-radius: 8px; overflow: hidden; }
-        th, td { padding: 12px; border-bottom: 1px solid #eee; text-align: center; }
-        th { background: #0A317E; color: white; }
-        .finished { background-color: #d4edda; animation: highlight 1s ease; }
-        @keyframes highlight { from { background: #fff3cd; } to { background: #d4edda; } }
+        body { font-family: 'Pretendard', sans-serif; background: #f4f6f9; margin: 0; padding: 10px; text-align: center; }
+        
+        /* 상단 타이머 섹션 */
+        .timer-box { background: #2c3e50; color: #fff; padding: 20px; border-radius: 10px; margin-bottom: 20px; }
+        #timerDisplay { font-size: 3rem; font-weight: bold; font-variant-numeric: tabular-nums; }
+        .info-text { font-size: 0.9rem; color: #bdc3c7; }
+        #startBtn { background: #e74c3c; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-size: 1rem; margin-top: 10px; }
+
+        /* 입력 섹션 */
+        .input-box { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        input { font-size: 2rem; width: 150px; text-align: center; padding: 10px; border: 2px solid #3498db; border-radius: 8px; }
+
+        /* 순위표 레이아웃 */
+        .rank-container { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
+        .rank-card { flex: 1; min-width: 300px; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        .rank-header { padding: 10px; color: white; font-weight: bold; }
+        
+        .senior-header { background: #2980b9; } /* 장년부 파랑 */
+        .junior-header { background: #27ae60; } /* 청년부 초록 */
+        .female-header { background: #8e44ad; } /* 여자부 보라 */
+
+        table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 8px; text-align: center; border-bottom: 1px solid #eee; font-size: 0.9rem; }
+        th { background: #f8f9fa; color: #555; font-size: 0.8rem; }
+        
+        /* 1,2,3위 강조 */
+        tr:nth-child(1) td { font-weight: bold; color: #d35400; } 
     </style>
 </head>
 <body>
+
+    <div class="timer-box">
+        <div class="info-text">경과 시간</div>
+        <div id="timerDisplay">READY</div>
+        <div id="startTimeInfo" class="info-text">-</div>
+        
+        <div style="margin-top: 15px;">
+            <button id="startBtn" onclick="startRace()">🔫 대회 출발</button>
+            <button id="resetBtn" onclick="resetRace()" style="background: #95a5a6; color: white; border: none; padding: 10px 15px; border-radius: 5px; cursor: pointer; font-size: 0.8rem; margin-left: 10px;">🔄 전체 초기화</button>
+            <button onclick="goToAdmin()" style="background:#34495e; color:white; border:none; padding:5px 10px; border-radius:3px; cursor:pointer;">⚙️ 관리자 설정</button>
+        </div>
+    </div>
+
+    <div class="input-box" style="margin-top:10px; background:#edf2f7;">
+        <strong>📡 GPX 인식 반경 설정: </strong>
+        <select id="radiusSelect" onchange="changeRadius(this.value)" style="font-size:1rem; padding:5px;">
+            <option value="10">10m</option>
+            <option value="20" selected>20m</option>
+            <option value="30">30m</option>
+            <option value="40">40m</option>
+            <option value="50">50m</option>
+        </select>
+        <span id="currentRadiusInfo" style="margin-left:10px; color:#2c3e50;">(현재: 20m)</span>
+    </div>
+
+    <div class="input-box">
+        <h3>🏁 배번 입력</h3>
+        <input type="number" id="bibInput" inputmode="numeric" placeholder="000">
+    </div>
+
     <div class="container">
-        <div class="input-box">
-            <h2>🏁 배번 입력</h2>
-            <input type="number" id="bibInput" inputmode="numeric" placeholder="000" autofocus>
-            <p>번호 입력 후 Enter를 누르세요</p>
+        <div id="missingSection" class="rank-card" style="display: none; width: 100%; border: 2px solid #e74c3c; margin-bottom: 20px;">
+            <div class="rank-header" style="background: #e74c3c;">⚠️ 미골인자 현황 (잔여 <span id="missingCount">0</span>명)</div>
+            <table>
+                <thead><tr><th>배번</th><th>이름</th><th>소속</th><th>연락처</th></tr></thead>
+                <tbody id="missingList"></tbody>
+            </table>
         </div>
 
-        <div class="list-section">
-            <h3>🏃 실시간 도착 순위</h3>
+        <div class="rank-container">
+            <div class="rank-card">
+                <div class="rank-header senior-header">🏃‍♂️ 남자 장년부 (~78년)</div>
+                <table><tbody id="seniorList"></tbody></table>
+            </div>
+            <div class="rank-card">
+                <div class="rank-header junior-header">🏃‍♂️ 남자 청년부 (79년~)</div>
+                <table><tbody id="juniorList"></tbody></table>
+            </div>
+            <div class="rank-card">
+                <div class="rank-header female-header">🏃‍♀️ 여자 통합</div>
+                <table><tbody id="femaleList"></tbody></table>
+            </div>
+        </div>
+
+        <div class="rank-card" style="margin-top: 20px; width: 100%;">
+            <div class="rank-header" style="background: #34495e;">🏁 전체 골인자 기록 (최신순)</div>
             <table>
                 <thead>
-                    <tr><th>배번</th><th>이름</th><th>기록</th></tr>
+                    <tr>
+                        <th>순위</th>
+                        <th>배번</th>
+                        <th>이름</th>
+                        <th>공식 기록 (심판)</th>
+                        <th>자동 기록 (GPX)</th>
+                    </tr>
                 </thead>
-                <tbody id="resultTable"></tbody>
+                <tbody id="allFinishedList"></tbody>
             </table>
         </div>
     </div>
@@ -39,17 +109,97 @@
     <script src="/socket.io/socket.io.js"></script>
     <script>
         const socket = io();
+        let raceStartTime = null;
+        let timerInterval = null;
+
+        // 1. 대회 출발
+        function startRace() {
+            const password = prompt("대회 출발을 위해 비밀번호를 입력하세요. 이미한번 출발했으면 관리자페이지에 기록초기화후 다시 출발해주세요.");
+            if (password === "1234") {
+                socket.emit('start_race');
+            } else {
+                alert("비밀번호가 틀렸습니다.");
+            }
+        }
+
+        // 관리자 페이지 이동 시 비번 확인 및 토큰 부여
+        function goToAdmin() {
+            const password = prompt("관리자 페이지 비밀번호를 입력하세요.");
+            if (password === "1234") {
+                // 간단한 세션 토큰 역할을 할 값을 로컬 스토리지에 저장
+                localStorage.setItem('admin_access', 'granted');
+                location.href = '/admin.html';
+            } else {
+                alert("권한이 없습니다.");
+            }
+        }
+
+        function changeRadius(val) {
+            const password = prompt("관리자 비밀번호를 입력하세요.");
+            if (password === "1234") {
+                socket.emit('update_radius', val);
+            } else {
+                alert("권한이 없습니다.");
+            }
+        }
+        // 리셋 함수
+        function resetRace() {
+            if(confirm("⚠️ 경고: 모든 선수의 출발 및 도착 기록이 삭제됩니다. 정말 초기화하시겠습니까?")) {
+                const password = prompt("관리자 비밀번호를 입력하세요 (임시: 1234)");
+                if(password === "1234") { // 간단한 보안 장치
+                    socket.emit('reset_race');
+                } else {
+                    alert("비밀번호가 틀렸습니다.");
+                }
+            }
+        }
+
+        socket.on('radius_changed', (val) => {
+            document.getElementById('radiusSelect').value = val;
+            document.getElementById('currentRadiusInfo').innerText = `(현재: ${val}m)`;
+        });
+
+        // 서버로부터 리셋 완료 신호를 받으면 화면 새로고침
+        socket.on('race_reset_complete', () => {
+            alert("기록이 초기화되었습니다.");
+            location.reload(); // 페이지를 새로고침하여 모든 상태 초기화
+        });
+
+        // 2. 타이머 작동 로직
+        socket.on('race_status', (data) => {
+            if (data.isStarted) {
+                raceStartTime = new Date(data.startTime);
+                
+                // 1. 버튼 비활성화 및 스타일 변경
+                const btn = document.getElementById('startBtn');
+                btn.disabled = true; // 클릭 불가
+                btn.style.display = 'none'; // 또는 아예 숨김
+                btn.innerText = "대회 진행 중";
+                
+                // 2. 타이머 레이블 변경
+                document.getElementById('startTimeInfo').innerText = "출발 시각: " + raceStartTime.toLocaleTimeString();
+                
+                // 3. 타이머 가동
+                if (timerInterval) clearInterval(timerInterval);
+                timerInterval = setInterval(updateTimer, 1000);
+            }
+        });
+
+        function updateTimer() {
+            if (!raceStartTime) return;
+            const now = new Date();
+            const diff = now - raceStartTime;
+            
+            const h = Math.floor(diff / (1000 * 60 * 60));
+            const m = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+            const s = Math.floor((diff % (1000 * 60)) / 1000);
+
+            document.getElementById('timerDisplay').innerText = 
+                `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+        }
+
+        // 3. 배번 입력 전송
         const bibInput = document.getElementById('bibInput');
-        const resultTable = document.getElementById('resultTable');
-
-        // 초기 데이터 로드
-        fetch('/api/runners')
-            .then(res => res.json())
-            .then(runners => {
-                runners.filter(r => r.finishTime).forEach(r => addRow(r));
-            });
-
-        // 배번 입력 시 서버로 전송
         bibInput.addEventListener('keypress', (e) => {
             if (e.key === 'Enter' && bibInput.value) {
                 socket.emit('runner_arrived', bibInput.value);
@@ -57,22 +207,83 @@
             }
         });
 
-        // 서버에서 업데이트 수신
-        socket.on('update_board', (runner) => {
-            addRow(runner, true);
+        socket.on('error_msg', (msg) => alert(msg));
+        
+        socket.on('update_ui', (data) => {
+            // 1. 미골인자 처리 (20명 미만 시 노출)
+            const count = data.notFinished.length;
+            const missingSection = document.getElementById('missingSection');
+            if (count > 0 && count < 20) {
+                missingSection.style.display = 'block';
+                document.getElementById('missingCount').innerText = count;
+                renderMissingTable('missingList', data.notFinished);
+            } else {
+                missingSection.style.display = 'none';
+            }
+
+            // 2. 부문별 입상자 처리
+            renderRankTable('seniorList', data.maleSenior);
+            renderRankTable('juniorList', data.maleJunior);
+            renderRankTable('femaleList', data.female);
+
+            // 3. 전체 골인자 처리
+            renderAllFinishedTable('allFinishedList', data.allFinished);
         });
 
-        socket.on('error_msg', (msg) => alert(msg));
+        function renderRankTable(elementId, runners) {
+            const tbody = document.getElementById(elementId);
+            tbody.innerHTML = '';
+            runners.forEach((r, index) => {
+                // 경과 시간 계산
+                const record = new Date(new Date(r.finishTime) - new Date(r.startTime));
+                const recordStr = record.toISOString().substr(11, 8); // HH:MM:SS 형식
 
-        function addRow(runner, isNew = false) {
-            const time = new Date(runner.finishTime).toLocaleTimeString('ko-KR', { hour12: false });
-            const row = `
-                <tr id="row-${runner.bibNumber}" class="${isNew ? 'finished' : ''}">
-                    <td>${runner.bibNumber}</td>
-                    <td>${runner.name || '-'}</td>
-                    <td>${time}</td>
+                const row = `<tr>
+                    <td>${index + 1}</td>
+                    <td>${r.bibNumber}</td>
+                    <td>${r.name || '-'}</td>
+                    <td>${recordStr}</td>
                 </tr>`;
-            resultTable.insertAdjacentHTML('afterbegin', row);
+                tbody.insertAdjacentHTML('beforeend', row);
+            });
+        }
+
+        function renderAllFinishedTable(elementId, runners) {
+            const tbody = document.getElementById(elementId);
+            tbody.innerHTML = '';
+            runners.forEach((r, index) => {
+                // 공식 기록 계산
+                const manualRecord = r.finishTime ? 
+                    new Date(new Date(r.finishTime) - new Date(r.startTime)).toISOString().substr(11, 8) : "-";
+                
+                // 자동 기록 계산
+                const autoRecord = r.autoFinishTime ? 
+                    new Date(new Date(r.autoFinishTime) - new Date(r.startTime)).toISOString().substr(11, 8) : "-";
+
+                const row = `<tr>
+                    <td>${index + 1}</td>
+                    <td>${r.bibNumber}</td>
+                    <td>${r.name}</td>
+                    <td style="font-weight:bold; color:#2c3e50;">${manualRecord}</td>
+                    <td style="color:#7f8c8d; font-size:0.85rem;">${autoRecord}</td>
+                </tr>`;
+                tbody.insertAdjacentHTML('beforeend', row);
+            });
+        }
+
+        function renderMissingTable(elementId, runners) {
+            const tbody = document.getElementById(elementId);
+            tbody.innerHTML = '';
+            runners.forEach((r, index) => {
+                const row = `<tr>
+                    <td>${index + 1}</td>
+                    <td>${r.bibNumber}</td>
+                    <td>${r.name}</td>
+                    <td>${r.affiliation}</td>
+                    <td>${r.phone}</td>
+                </tr>`;
+                tbody.insertAdjacentHTML('beforeend', row);
+            });
         }
     </script>
 </body>

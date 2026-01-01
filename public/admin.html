@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>관리자 - 선수 관리</title>
+    <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+    <style>
+        body { font-family: sans-serif; padding: 20px; }
+        .controls { margin-bottom: 20px; display: flex; gap: 10px; align-items: center; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th { cursor: pointer; background: #f8f9fa; border: 1px solid #ddd; padding: 10px; }
+        th:hover { background: #e9ecef; }
+        td { border: 1px solid #ddd; padding: 8px; text-align: center; }
+        input[type="text"], input[type="number"] { width: 90%; padding: 5px; border: 1px solid #ccc; border-radius: 4px; }
+        .toast { position: fixed; top: 20px; right: 20px; background: #2ecc71; color: white; padding: 10px 20px; border-radius: 5px; display: none; z-index: 1000; }
+        .btn-reset { background: #e74c3c; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; }
+        .btn-excel { background: #27ae60; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <div id="toast" class="toast">수정되었습니다.</div>
+    <h1>🏃 선수 정보 관리</h1>
+
+    <div class="controls">
+        <button class="btn-excel" onclick="downloadExcel()">📊 엑셀 다운로드</button>
+        <button onclick="downloadTemplate()" style="background:#34495e; color:white; border:none; padding:8px 15px; border-radius:4px; cursor:pointer;">📥 템플릿 다운로드</button>
+    
+        <div style="border-left: 2px solid #ccc; padding-left: 15px; display: flex; align-items: center; gap: 10px;">
+            <label for="excelFile" style="font-weight: bold; cursor: pointer; background: #9b59b6; color: white; padding: 8px 15px; border-radius: 4px;">파일 선택</label>
+            <input type="file" id="excelFile" accept=".xlsx, .xls" style="display: none;" onchange="uploadExcel(this)">
+            <span id="fileName" style="font-size: 0.85rem; color: #666;">선택된 파일 없음</span>
+        </div>
+
+        <button class="btn-reset" onclick="resetAllRecords()">🔄 모든 기록 초기화</button>
+        <button onclick="location.href='/'">🏠 전광판으로</button>
+        <button onclick="location.href='/certificate.html'" style="background:#f39c12; color:white; border:none; padding:8px 15px; border-radius:4px; cursor:pointer;">🏆 상장 출력 화면</button>
+    </div>
+
+    <table id="runnerTable">
+        <thead>
+            <tr>
+                <th onclick="sortTable(0)">배번 ↕</th>
+                <th onclick="sortTable(1)">이름 ↕</th>
+                <th onclick="sortTable(2)">성별 ↕</th>
+                <th onclick="sortTable(3)">출생년도 ↕</th>
+                <th onclick="sortTable(4)">소속 ↕</th>
+                <th onclick="sortTable(5)">연락처 ↕</th>
+                <th onclick="sortTable(6)">입금 ↕</th>
+                <th onclick="sortTable(7)">기록 ↕</th>
+                <th onclick="sortTable(8)">인쇄수 ↕</th>
+                <th>관리</th>
+            </tr>
+        </thead>
+        <tbody id="runnerList"></tbody>
+    </table>
+
+    <script>
+
+        // 1. 직접 접속 차단 로직 (페이지 최상단)
+        if (localStorage.getItem('admin_access') !== 'granted') {
+            alert("잘못된 접근입니다. 메인 페이지에서 비밀번호를 입력하세요.");
+            location.href = '/';
+        }
+
+        // 시간 포맷 함수 (HH:mm:ss)
+        function formatTime(dateStr, startTimeStr) {
+            if (!dateStr || !startTimeStr) return "-";
+            const diff = new Date(dateStr) - new Date(startTimeStr);
+            if (diff < 0) return "-";
+            return new Date(diff).toISOString().substr(11, 8);
+        }
+
+        let runnersData = [];
+
+        // 데이터 불러오기
+        async function fetchRunners() {
+            const res = await fetch('/api/runners');
+            runnersData = await res.json();
+            renderTable(runnersData);
+        }
+
+        function renderTable(data) {
+            const tbody = document.getElementById('runnerList');
+            tbody.innerHTML = '';
+            data.forEach(r => {
+                const recordStr = formatTime(r.finishTime, r.startTime);
+                const row = `<tr>
+                    <td><input type="text" value="${r.bibNumber}" onchange="updateField(${r.id}, 'bibNumber', this.value)"></td>
+                    <td><input type="text" value="${r.name || ''}" onchange="updateField(${r.id}, 'name', this.value)"></td>
+                    <td><input type="text" value="${r.gender || ''}" onchange="updateField(${r.id}, 'gender', this.value)"></td>
+                    <td><input type="number" value="${r.birthYear || ''}" onchange="updateField(${r.id}, 'birthYear', this.value)"></td>
+                    <td><input type="text" value="${r.affiliation || ''}" onchange="updateField(${r.id}, 'affiliation', this.value)"></td>
+                    <td><input type="text" value="${r.phone || ''}" onchange="updateField(${r.id}, 'phone', this.value)"></td>
+
+                    <td>
+                        <select onchange="updateField(${r.id}, 'paymentStatus', this.value)" 
+                                style="background: ${r.paymentStatus==='Y'?'#d4edda':r.paymentStatus==='F'?'#e2e3e5':'#f8d7da'}">
+                            <option value="Y" ${r.paymentStatus==='Y'?'selected':''}>Y (확인)</option>
+                            <option value="N" ${r.paymentStatus==='N'?'selected':''}>N (미입금)</option>
+                            <option value="F" ${r.paymentStatus==='F'?'selected':''}>F (무료)</option>
+                        </select>
+                    </td>
+                    <td>${recordStr}</td> 
+                    <td>
+                        <span id="print-count-${r.id}">${r.printCount}</span>회
+                        ${r.finishTime ? 
+                            `<button onclick="printCertificate(${r.id}, '${r.bibNumber}')">🖨️ 인쇄</button>` : 
+                            `<span style="color:#ccc; font-size:0.8rem;">골인전</span>`
+                        }
+                    </td>
+                    <td><button onclick="deleteRunner(${r.id})" style="color:red; border:none; background:none; cursor:pointer;">❌</button></td>
+                </tr>`;
+                tbody.insertAdjacentHTML('beforeend', row);
+            });
+        }
+
+        // 인라인 수정 함수
+        async function updateField(id, field, value) {
+            const body = {};
+            body[field] = field === 'birthYear' ? Number(value) : value;
+            
+            await fetch(`/api/runners/${id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
+            });
+            showToast();
+        }
+
+        // 기록증 인쇄 및 카운트 업데이트 함수
+        async function printCertificate(id, bib) {
+            // 1. 카운트 증가 요청
+            const res = await fetch(`/api/runners/${id}/print`, { method: 'POST' });
+            const result = await res.json();
+            
+            // 2. 화면의 카운트 즉시 업데이트
+            document.getElementById(`print-count-${id}`).innerText = result.printCount;
+
+            // 3. 기록증 인쇄 팝업 창 열기 (Silent Print 모드 사용 권장)
+            const printWindow = window.open(`/certificate_single.html?bib=${bib}`, '_blank');
+        }
+
+        function showToast() {
+            const toast = document.getElementById('toast');
+            toast.style.display = 'block';
+            setTimeout(() => { toast.style.display = 'none'; }, 2000);
+        }
+
+        // 기록 초기화 (3가지 칼럼 통합 삭제)
+        async function resetAllRecords() {
+            if(confirm("모든 선수의 출발, 도착(수동/자동) 기록을 삭제하시겠습니까?")) {
+                await fetch('/api/runners/reset-records', { method: 'POST' });
+                alert("초기화되었습니다.");
+                fetchRunners();
+            }
+        }
+
+        // 1. 업로드용 템플릿 다운로드 함수
+        function downloadTemplate() {
+            const templateData = [
+                { bibNumber: "101", name: "홍길동", gender: "남", birthYear: 1980, affiliation: "부천트라이", phone: "010-1234-5678" }
+            ];
+            const worksheet = XLSX.utils.json_to_sheet(templateData);
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, "Sheet1");
+            XLSX.writeFile(workbook, "runner_template.xlsx");
+        }
+
+        // 2. 엑셀 파일 읽기 및 서버 전송
+        function uploadExcel(input) {
+            const file = input.files[0];
+            if (!file) return;
+            
+            document.getElementById('fileName').innerText = file.name;
+            const reader = new FileReader();
+
+            reader.onload = async (e) => {
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, { type: 'array' });
+                const sheetName = workbook.SheetNames[0];
+                const json = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName]);
+
+                if (confirm(`${json.length}명의 데이터를 등록하시겠습니까? (배번 중복 시 기존 정보가 업데이트됩니다.)`)) {
+                    try {
+                        const response = await fetch('/api/runners/bulk', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(json)
+                        });
+                        const result = await response.json();
+                        alert(result.message);
+                        fetchRunners(); // 목록 새로고침
+                    } catch (err) {
+                        alert("업로드 실패: 데이터 형식을 확인해주세요.");
+                    }
+                }
+                input.value = ''; // 파일 입력 초기화
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        // 엑셀 다운로드
+        function downloadExcel() {
+            const exportData = runnersData.map(r => ({
+                "배번": r.bibNumber,
+                "이름": r.name,
+                "성별": r.gender,
+                "기록": formatTime(r.finishTime, r.startTime), // 엑셀에도 시:분:초 포함
+                "입금": r.paymentStatus,
+                "인쇄수": r.printCount,
+                "연락처": r.phone
+            }));
+            const worksheet = XLSX.utils.json_to_sheet(exportData);
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, "선수명단");
+            XLSX.writeFile(workbook, "trail_runners_final.xlsx");
+        }
+
+        // 테이블 정렬
+        let sortOrder = true;
+        function sortTable(n) {
+            sortOrder = !sortOrder;
+            const sorted = [...runnersData].sort((a, b) => {
+                const fields = ['bibNumber', 'name', 'gender', 'birthYear', 'affiliation', 'phone'];
+                const valA = a[fields[n]] || '';
+                const valB = b[fields[n]] || '';
+                return sortOrder ? (valA > valB ? 1 : -1) : (valA < valB ? 1 : -1);
+            });
+            renderTable(sorted);
+        }
+
+        fetchRunners();
+    </script>
+</body>
+</html>

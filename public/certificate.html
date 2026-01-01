@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>입상자 상장 출력</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&display=swap');
+
+        body { font-family: 'Gowun Batang', serif; background: #f0f0f0; margin: 0; padding: 20px; }
+        
+        /* 설정창 스타일 (출력 시 숨김) */
+        .config-panel { 
+            background: white; padding: 20px; border-radius: 10px; 
+            margin-bottom: 30px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); 
+        }
+        .config-panel h3 { margin-top: 0; }
+        .config-input { margin-bottom: 10px; display: flex; gap: 10px; align-items: center; }
+        .config-input input { padding: 8px; width: 300px; border: 1px solid #ddd; }
+
+        /* 상장 용지 스타일 */
+        .certificate-paper {
+            width: 210mm; height: 297mm; /* A4 사이즈 */
+            background: white; margin: 0 auto 20px auto;
+            padding: 20mm; box-sizing: border-box;
+            border: 15px double #c9a55c; /* 상장 테두리 */
+            position: relative; display: flex; flex-direction: column; align-items: center;
+        }
+
+        .cert-title { font-size: 50px; font-weight: bold; margin-top: 50px; letter-spacing: 15px; }
+        .cert-category { font-size: 24px; margin-top: 60px; }
+        .cert-info { font-size: 30px; margin-top: 20px; }
+        .cert-content { 
+            font-size: 26px; line-height: 1.8; margin-top: 60px; 
+            text-align: justify; width: 80%; text-justify: inter-word;
+        }
+        .cert-date { font-size: 22px; margin-top: 80px; }
+        .cert-host { font-size: 32px; font-weight: bold; margin-top: 50px; }
+
+        /* 출력 시 설정창 및 버튼 숨기기 */
+        @media print {
+            .config-panel, button, .no-print { display: none !important; }
+            body { background: white; padding: 0; }
+            .certificate-paper { margin: 0; border: none; page-break-after: always; }
+            /* 실제 출력 시 테두리가 필요하면 위 border 유지, 필요없으면 none */
+        }
+
+        button { padding: 10px 20px; background: #2c3e50; color: white; border: none; cursor: pointer; border-radius: 5px; }
+    </style>
+</head>
+<body>
+
+    <div class="config-panel">
+        <h3>🏆 상장 문구 설정 (화면에서 수정하세요)</h3>
+        <div class="config-input">
+            <label>대회 명칭:</label>
+            <input type="text" id="input_raceName" value="2026년 부천시의장배 철인3종 트레일런대회" oninput="syncText()">
+        </div>
+        <div class="config-input">
+            <label>상장 본문:</label>
+            <input type="text" id="input_content" value="위 사람은 부천종합운동장에서 개최된 본 대회에서 우수한 성적을 거두었으므로 이 상장을 수여합니다." oninput="syncText()" style="width: 600px;">
+        </div>
+        <div class="config-input">
+            <label>수여 날짜:</label>
+            <input type="text" id="input_date" value="2026년 3월 21일" oninput="syncText()">
+        </div>
+        <div class="config-input">
+            <label>주최 기관:</label>
+            <input type="text" id="input_host" value="부천 트라이 클럽 회장 장 경일" oninput="syncText()">
+        </div>
+        <hr>
+        <p>※ 순위 데이터는 실시간 입상자 목록에서 가져옵니다.</p>
+        <button onclick="window.print()">🖨️ 설정된 내용으로 상장 출력</button>
+        <button onclick="location.href='/admin.html'" style="background:#7f8c8d">⬅️ 관리자 페이지로</button>
+    </div>
+
+    <div id="certContainer"></div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+
+        // 1. 서버에서 순위 데이터 가져오기
+        socket.on('update_ui', (data) => {
+            const container = document.getElementById('certContainer');
+            container.innerHTML = ''; // 초기화
+
+            // 각 부문별 입상자(Top 3 또는 Top 5)를 상장으로 변환
+            const categories = [
+                { title: "남자 장년부", runners: data.maleSenior },
+                { title: "남자 청년부", runners: data.maleJunior },
+                { title: "여자 통합부", runners: data.female }
+            ];
+
+            categories.forEach(cat => {
+                cat.runners.forEach((runner, index) => {
+                    createCert(cat.title, index + 1, runner.name);
+                });
+            });
+            syncText(); // 생성 후 설정값과 동기화
+        });
+
+        // 2. 상장 HTML 생성 함수
+        function createCert(category, rank, name) {
+            const html = `
+                <div class="certificate-paper">
+                    <div class="cert-title">상 장</div>
+                    <div class="cert-category">${category}</div>
+                    <div class="cert-info">제 ${rank} 위 &nbsp;&nbsp;&nbsp; 성 명 : ${name}</div>
+                    <div class="display_raceName" style="font-size:1.5rem; margin-top:40px; font-weight:bold;"></div>
+                    <div class="cert-content display_content"></div>
+                    <div class="cert-date display_date"></div>
+                    <div class="cert-host display_host"></div>
+                </div>
+            `;
+            document.getElementById('certContainer').insertAdjacentHTML('beforeend', html);
+        }
+
+        // 3. 설정창의 텍스트를 상장에 실시간 반영
+        function syncText() {
+            const fields = ['raceName', 'content', 'date', 'host'];
+            fields.forEach(field => {
+                const val = document.getElementById('input_' + field).value;
+                document.querySelectorAll('.display_' + field).forEach(el => {
+                    el.innerText = val;
+                });
+            });
+        }
+    </script>
+</body>
+</html>

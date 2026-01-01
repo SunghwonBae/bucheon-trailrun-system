@@ -25,6 +25,11 @@ model TrailRunner {
   // 시간 기록
   startTime   DateTime?         // 출발 시간
   finishTime  DateTime?         // 도착 시간
+  autoFinishTime  DateTime? // GPX로 측정된 자동 기록 (추가)
+
+  paymentStatus   String    @default("N") // Y: 입금확인, N: 미입금, F: 무료
+  printCount      Int       @default(0)   // 기록증 인쇄 횟수
+  
   createdAt   DateTime  @default(now())
 
   @@map("trail_runners") // DB 테이블 이름을 trail_runners로 설정
