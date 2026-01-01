@@ -136,6 +136,10 @@
 
         // 1. 대회 출발
         function startRace() {
+            if (localStorage.getItem('admin_access') === 'granted') {
+                socket.emit('start_race');
+                return;
+            }
             const password = prompt("대회 출발을 위해 비밀번호를 입력하세요. 이미한번 출발했으면 관리자페이지에 기록초기화후 다시 출발해주세요.");
             if (password === adminPassword) {
                 socket.emit('start_race');
@@ -146,6 +150,10 @@
 
         // 관리자 페이지 이동 시 비번 확인 및 토큰 부여
         function goToAdmin() {
+            if (localStorage.getItem('admin_access') === 'granted') {
+                location.href = '/admin.html';
+                return;
+            }
             const password = prompt("관리자 페이지 비밀번호를 입력하세요.");
             if (password === adminPassword) {
                 // 간단한 세션 토큰 역할을 할 값을 로컬 스토리지에 저장
@@ -158,6 +166,12 @@
 
         // 대회 종료
         function finishRace() {
+            if (localStorage.getItem('admin_access') === 'granted') {
+                if (timerInterval) clearInterval(timerInterval);
+                document.querySelector('.timer-box .info-text').innerText = "대회가 종료되었습니다.";
+                socket.emit('finish_race');
+                return;
+            }
             const password = prompt("대회 종료를 위해 비밀번호를 입력하세요.");
             if (password === adminPassword) {
                 if (timerInterval) clearInterval(timerInterval);
@@ -171,6 +185,10 @@
         // 리셋 함수
         function resetRace() {
             if(confirm("⚠️ 경고: 모든 선수의 출발 및 도착 기록이 삭제됩니다. 정말 초기화하시겠습니까?")) {
+                if (localStorage.getItem('admin_access') === 'granted') {
+                    socket.emit('reset_race');
+                    return;
+                }
                 const password = prompt("관리자 비밀번호를 입력하세요");
                 if(password === adminPassword) { // 간단한 보안 장치
                     socket.emit('reset_race');
