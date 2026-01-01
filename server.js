@@ -9,6 +9,12 @@ const server = http.createServer(app);
 const io = new Server(server);
 const prisma = new PrismaClient();
 
+// [추가] 올해 데이터 필터링 조건
+const currentYear = new Date().getFullYear();
+const startOfYear = new Date(currentYear, 0, 1);
+const endOfYear = new Date(currentYear + 1, 0, 1);
+const yearCondition = { gte: startOfYear, lt: endOfYear };
+
 app.use(express.static('public'));
 
 let goalRadius = 20; // 기본값 20m
@@ -34,27 +40,27 @@ const FINISH_LINE = { lat: 37.503, lng: 126.795 };
 async function getRaceData() {
     // 1. 부문별 입상자 (Top 5)
     const maleSenior = await prisma.trailRunner.findMany({
-        where: { gender: '남', birthYear: { lte: 1978 }, finishTime: { not: null } },
+        where: { gender: '남', birthYear: { lte: 1978 }, finishTime: { not: null }, createdAt: yearCondition },
         orderBy: { finishTime: 'asc' }, take: 5
     });
     const maleJunior = await prisma.trailRunner.findMany({
-        where: { gender: '남', birthYear: { gte: 1979 }, finishTime: { not: null } },
+        where: { gender: '남', birthYear: { gte: 1979 }, finishTime: { not: null }, createdAt: yearCondition },
         orderBy: { finishTime: 'asc' }, take: 5
     });
     const female = await prisma.trailRunner.findMany({
-        where: { gender: '여', finishTime: { not: null } },
+        where: { gender: '여', finishTime: { not: null }, createdAt: yearCondition },
         orderBy: { finishTime: 'asc' }, take: 5
     });
 
     // 2. 미골인자 목록 (출발은 했으나 도착 안 함)
     const notFinished = await prisma.trailRunner.findMany({
-        where: { finishTime: null, startTime: { not: null } },
+        where: { finishTime: null, startTime: { not: null }, createdAt: yearCondition },
         orderBy: { bibNumber: 'asc' }
     });
 
     // 3. 전체 골인자 목록 (최신순)
     const allFinished = await prisma.trailRunner.findMany({
-        where: { finishTime: { not: null } },
+        where: { finishTime: { not: null }, createdAt: yearCondition },
         orderBy: { finishTime: 'desc' }
     });
 
@@ -65,7 +71,9 @@ io.on('connection', async (socket) => {
     console.log('접속:', socket.id);
 
     // 1. 접속 시 현재 대회 상태 전송 (이미 출발했는지 확인)
-    const firstRunner = await prisma.trailRunner.findFirst();
+    const firstRunner = await prisma.trailRunner.findFirst({
+        where: { createdAt: yearCondition }
+    });
     if (firstRunner && firstRunner.startTime) {
         socket.emit('race_status', { startTime: firstRunner.startTime ,isStarted: true});
     }
@@ -78,7 +86,10 @@ io.on('connection', async (socket) => {
 
         // 중복 클릭 방지를 위해 서버에서도 한 번 더 체크 가능
         const alreadyStarted = await prisma.trailRunner.findFirst({
-            where: { startTime: { not: null } }
+            where: { 
+                startTime: { not: null },
+                createdAt: yearCondition
+            }
         });
         
         if (alreadyStarted) return; // 이미 시작됐다면 무시
@@ -86,6 +97,7 @@ io.on('connection', async (socket) => {
         const now = new Date();
         // 모든 선수의 출발 시간을 현재 시간으로 설정
         await prisma.trailRunner.updateMany({
+            where: { createdAt: yearCondition },
             data: { startTime: now }
         });
         io.emit('race_status', { startTime: now , isStarted: true}); // 모든 클라이언트에 타이머 시작 알림
@@ -94,6 +106,7 @@ io.on('connection', async (socket) => {
     socket.on('reset_race', async () => {
         try {
             await prisma.trailRunner.updateMany({
+                where: { createdAt: yearCondition },
                 data: { 
                     startTime: null, 
                     finishTime: null,
@@ -111,8 +124,8 @@ io.on('connection', async (socket) => {
     // [이벤트] 선수 도착 처리
     socket.on('runner_arrived', async (bibNumber) => {
         try {
-            const runner = await prisma.trailRunner.findUnique({
-                where: { bibNumber: String(bibNumber) }
+            const runner = await prisma.trailRunner.findFirst({
+                where: { bibNumber: String(bibNumber), createdAt: yearCondition }
             });
 
             if (runner) {
@@ -124,7 +137,7 @@ io.on('connection', async (socket) => {
                 if (!runner.finishTime) {
                     // 기록 저장
                     await prisma.trailRunner.update({
-                        where: { bibNumber: String(bibNumber) },
+                        where: { id: runner.id },
                         data: { finishTime: new Date() } // 공식 기록 필드에 저장
                     });
                     const newData = await getRaceData();
@@ -146,7 +159,7 @@ io.on('connection', async (socket) => {
      */
     socket.on('player_location', async (data) => {
         const { bibNumber, lat, lng } = data;
-        const runner = await prisma.trailRunner.findUnique({ where: { bibNumber: String(bibNumber) } });
+        const runner = await prisma.trailRunner.findFirst({ where: { bibNumber: String(bibNumber), createdAt: yearCondition } });
 
         if (runner && runner.startTime) {
             const distance = getDistance(lat, lng, FINISH_LINE.lat, FINISH_LINE.lng);
@@ -157,7 +170,7 @@ io.on('connection', async (socket) => {
             // 30분 경과 및 설정된 반경 이내 진입 시 (이미 기록이 있더라도 GPX 데이터는 남김)
             if (diffMinutes >= 30 && distance <= goalRadius && !runner.autoFinishTime) {
                 await prisma.trailRunner.update({
-                    where: { bibNumber: String(bibNumber) },
+                    where: { id: runner.id },
                     data: { autoFinishTime: new Date() } // 자동 기록 필드에 저장
                 });
                 const newData = await getRaceData();
@@ -175,7 +188,10 @@ io.on('connection', async (socket) => {
 
     // [API] 모든 선수 목록 가져오기
     app.get('/api/runners', async (req, res) => {
-        const runners = await prisma.trailRunner.findMany({ orderBy: { bibNumber: 'asc' } });
+        const runners = await prisma.trailRunner.findMany({ 
+            where: { createdAt: yearCondition },
+            orderBy: { bibNumber: 'asc' } 
+        });
         res.json(runners);
     });
 
@@ -203,7 +219,8 @@ io.on('connection', async (socket) => {
     // [API] 통합 기록 초기화 (출발, 도착, 자동도착 삭제)
     app.post('/api/runners/reset-records', async (req, res) => {
         await prisma.trailRunner.updateMany({
-            data: { startTime: null, finishTime: null, autoFinishTime: null }
+            where: { createdAt: yearCondition },
+            data: { startTime: null, finishTime: null, autoFinishTime: null, printCount: 0 }
         });
         res.json({ message: "모든 기록이 초기화되었습니다." });
     });
@@ -250,6 +267,25 @@ io.on('connection', async (socket) => {
         } catch (err) {
             console.error(err);
             res.status(500).json({ error: "데이터 형식이 올바르지 않습니다." });
+        }
+    });
+
+    // [추가] 개별 기록증 출력을 위한 선수 정보 조회
+    socket.on('get_runner_info', async (bib) => {
+        try {
+            const runner = await prisma.trailRunner.findFirst({ where: { bibNumber: String(bib), createdAt: yearCondition } });
+            if (runner) {
+                let record = "-";
+                if (runner.finishTime && runner.startTime) {
+                    const diff = new Date(runner.finishTime) - new Date(runner.startTime);
+                    record = new Date(diff).toISOString().substr(11, 8);
+                }
+                socket.emit('runner_info_res', { ...runner, finishRecord: record });
+            } else {
+                socket.emit('runner_info_res', null);
+            }
+        } catch (err) {
+            console.error(err);
         }
     });
 });

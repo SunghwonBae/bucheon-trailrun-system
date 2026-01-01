@@ -11,7 +11,16 @@
         .timer-box { background: #2c3e50; color: #fff; padding: 20px; border-radius: 10px; margin-bottom: 20px; }
         #timerDisplay { font-size: 3rem; font-weight: bold; font-variant-numeric: tabular-nums; }
         .info-text { font-size: 0.9rem; color: #bdc3c7; }
-        #startBtn { background: #e74c3c; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-size: 1rem; margin-top: 10px; }
+        
+        /* 버튼 스타일 통일 */
+        #startBtn, #resetBtn, #goAdminBtn, #finishBtn { 
+            color: white; border: none; padding: 10px 20px; border-radius: 5px; 
+            cursor: pointer; font-size: 1rem; margin: 5px; font-weight: bold;
+        }
+        #startBtn { background: #e74c3c; }
+        #resetBtn { background: #95a5a6; }
+        #goAdminBtn { background: #34495e; }
+        #finishBtn { background: #8e44ad; }
 
         /* 입력 섹션 */
         .input-box { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); margin-bottom: 20px; }
@@ -43,13 +52,14 @@
         
         <div style="margin-top: 15px;">
             <button id="startBtn" onclick="startRace()">🔫 대회 출발</button>
-            <button id="resetBtn" onclick="resetRace()" style="background: #95a5a6; color: white; border: none; padding: 10px 15px; border-radius: 5px; cursor: pointer; font-size: 0.8rem; margin-left: 10px;">🔄 전체 초기화</button>
-            <button onclick="goToAdmin()" style="background:#34495e; color:white; border:none; padding:5px 10px; border-radius:3px; cursor:pointer;">⚙️ 관리자 설정</button>
+            <button id="resetBtn" onclick="resetRace()">🔄 전체 초기화</button>
+            <button id="goAdminBtn" onclick="goToAdmin()">⚙️ 관리자 설정</button>
+            <button id="finishBtn" onclick="finishRace()">🏁 대회 종료</button>
         </div>
     </div>
 
     <div class="input-box" style="margin-top:10px; background:#edf2f7;">
-        <strong>📡 GPX 인식 반경 설정: </strong>
+        <strong>📡 GPX인식 자동골인 반경설정: </strong>
         <select id="radiusSelect" onchange="changeRadius(this.value)" style="font-size:1rem; padding:5px;">
             <option value="10">10m</option>
             <option value="20" selected>20m</option>
@@ -61,7 +71,7 @@
     </div>
 
     <div class="input-box">
-        <h3>🏁 배번 입력</h3>
+        <h3>🏁 완주배번 입력후 Enter</h3>
         <input type="number" id="bibInput" inputmode="numeric" placeholder="000">
     </div>
 
@@ -69,7 +79,7 @@
         <div id="missingSection" class="rank-card" style="display: none; width: 100%; border: 2px solid #e74c3c; margin-bottom: 20px;">
             <div class="rank-header" style="background: #e74c3c;">⚠️ 미골인자 현황 (잔여 <span id="missingCount">0</span>명)</div>
             <table>
-                <thead><tr><th>배번</th><th>이름</th><th>소속</th><th>연락처</th></tr></thead>
+                <thead><tr><th> </th><th>배번</th><th>이름</th><th>소속</th><th>연락처</th></tr></thead>
                 <tbody id="missingList"></tbody>
             </table>
         </div>
@@ -90,7 +100,7 @@
         </div>
 
         <div class="rank-card" style="margin-top: 20px; width: 100%;">
-            <div class="rank-header" style="background: #34495e;">🏁 전체 골인자 기록 (최신순)</div>
+            <div class="rank-header" style="background: #34495e;">🏁 전체 완주자 기록 (최신순)</div>
             <table>
                 <thead>
                     <tr>
@@ -131,6 +141,17 @@
                 location.href = '/admin.html';
             } else {
                 alert("권한이 없습니다.");
+            }
+        }
+
+        // 대회 종료
+        function finishRace() {
+            const password = prompt("대회 종료를 위해 비밀번호를 입력하세요.");
+            if (password === "1234") {
+                if (timerInterval) clearInterval(timerInterval);
+                document.querySelector('.timer-box .info-text').innerText = "대회가 종료되었습니다.";
+            } else {
+                alert("비밀번호가 틀렸습니다.");
             }
         }
 

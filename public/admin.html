@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <title>관리자 - 선수 관리</title>
+    <title>부천트라이 산악마라톤대회 관리자페이지</title>
     <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
     <style>
         body { font-family: sans-serif; padding: 20px; }
@@ -13,41 +13,52 @@
         td { border: 1px solid #ddd; padding: 8px; text-align: center; }
         input[type="text"], input[type="number"] { width: 90%; padding: 5px; border: 1px solid #ccc; border-radius: 4px; }
         .toast { position: fixed; top: 20px; right: 20px; background: #2ecc71; color: white; padding: 10px 20px; border-radius: 5px; display: none; z-index: 1000; }
-        .btn-reset { background: #e74c3c; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; }
-        .btn-excel { background: #27ae60; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; }
+        
+        /* 버튼 스타일 통일 */
+        .btn { 
+            padding: 10px 15px; border: none; border-radius: 5px; color: white; 
+            cursor: pointer; font-size: 0.9rem; font-weight: bold; 
+            display: inline-flex; align-items: center; justify-content: center;
+        }
+        .btn-excel { background: #27ae60; }
+        .btn-template { background: #34495e; }
+        .btn-upload { background: #9b59b6; }
+        .btn-reset { background: #e74c3c; }
+        .btn-home { background: #2980b9; }
+        .btn-cert { background: #f39c12; }
     </style>
 </head>
 <body>
     <div id="toast" class="toast">수정되었습니다.</div>
-    <h1>🏃 선수 정보 관리</h1>
+    <h1>🏃 부천트라이 산악마라톤대회 선수정보관리</h1>
 
     <div class="controls">
-        <button class="btn-excel" onclick="downloadExcel()">📊 엑셀 다운로드</button>
-        <button onclick="downloadTemplate()" style="background:#34495e; color:white; border:none; padding:8px 15px; border-radius:4px; cursor:pointer;">📥 템플릿 다운로드</button>
+        <button class="btn btn-excel" onclick="downloadExcel()">📊 전체목록 액셀다운로드</button>
+        <button class="btn btn-template" onclick="downloadTemplate()">📥 업로드템플릿다운</button>
     
         <div style="border-left: 2px solid #ccc; padding-left: 15px; display: flex; align-items: center; gap: 10px;">
-            <label for="excelFile" style="font-weight: bold; cursor: pointer; background: #9b59b6; color: white; padding: 8px 15px; border-radius: 4px;">파일 선택</label>
+            <label for="excelFile" class="btn btn-upload">업로드파일 선택</label>
             <input type="file" id="excelFile" accept=".xlsx, .xls" style="display: none;" onchange="uploadExcel(this)">
             <span id="fileName" style="font-size: 0.85rem; color: #666;">선택된 파일 없음</span>
         </div>
 
-        <button class="btn-reset" onclick="resetAllRecords()">🔄 모든 기록 초기화</button>
-        <button onclick="location.href='/'">🏠 전광판으로</button>
-        <button onclick="location.href='/certificate.html'" style="background:#f39c12; color:white; border:none; padding:8px 15px; border-radius:4px; cursor:pointer;">🏆 상장 출력 화면</button>
+        <button class="btn btn-reset" onclick="resetAllRecords()">🔄 모든 기록 초기화</button>
+        <button class="btn btn-home" onclick="location.href='/'">🏠 전광판으로</button>
+        <button class="btn btn-cert" onclick="location.href='/certificate.html'">🏆 상장 출력 화면</button>
     </div>
 
     <table id="runnerTable">
         <thead>
             <tr>
-                <th onclick="sortTable(0)">배번 ↕</th>
-                <th onclick="sortTable(1)">이름 ↕</th>
-                <th onclick="sortTable(2)">성별 ↕</th>
-                <th onclick="sortTable(3)">출생년도 ↕</th>
-                <th onclick="sortTable(4)">소속 ↕</th>
-                <th onclick="sortTable(5)">연락처 ↕</th>
-                <th onclick="sortTable(6)">입금 ↕</th>
-                <th onclick="sortTable(7)">기록 ↕</th>
-                <th onclick="sortTable(8)">인쇄수 ↕</th>
+                <th onclick="sortTable(0)" style="width: 70px;">배번 <span id="sort-icon-0">↕</span></th>
+                <th onclick="sortTable(1)">이름 <span id="sort-icon-1">↕</span></th>
+                <th onclick="sortTable(2)" style="width: 50px;">성별 <span id="sort-icon-2">↕</span></th>
+                <th onclick="sortTable(3)" style="width: 80px;">출생년도 <span id="sort-icon-3">↕</span></th>
+                <th onclick="sortTable(4)">소속 <span id="sort-icon-4">↕</span></th>
+                <th onclick="sortTable(5)">연락처 <span id="sort-icon-5">↕</span></th>
+                <th onclick="sortTable(6)">입금 <span id="sort-icon-6">↕</span></th>
+                <th onclick="sortTable(7)">기록 <span id="sort-icon-7">↕</span></th>
+                <th onclick="sortTable(8)">인쇄수 <span id="sort-icon-8">↕</span></th>
                 <th>관리</th>
             </tr>
         </thead>
@@ -136,8 +147,15 @@
             // 2. 화면의 카운트 즉시 업데이트
             document.getElementById(`print-count-${id}`).innerText = result.printCount;
 
-            // 3. 기록증 인쇄 팝업 창 열기 (Silent Print 모드 사용 권장)
-            const printWindow = window.open(`/certificate_single.html?bib=${bib}`, '_blank');
+            // 3. 기록증 인쇄 팝업 창 열기
+            // 설정 패널과 A4 미리보기를 위해 적절한 크기로 팝업을 엽니다.
+            const width = 1000;
+            const height = 900;
+            const left = (window.screen.width - width) / 2;
+            const top = (window.screen.height - height) / 2;
+            
+            window.open(`/certificate_single.html?bib=${bib}`, 'CertificateWindow', 
+                `width=${width},height=${height},top=${top},left=${left},scrollbars=yes,resizable=yes`);
         }
 
         function showToast() {
@@ -205,10 +223,11 @@
                 "배번": r.bibNumber,
                 "이름": r.name,
                 "성별": r.gender,
+                "출생년도": r.birthYear,
                 "기록": formatTime(r.finishTime, r.startTime), // 엑셀에도 시:분:초 포함
-                "입금": r.paymentStatus,
-                "인쇄수": r.printCount,
-                "연락처": r.phone
+                "연락처": r.phone,
+                "소속": r.affiliation,
+                "입금": r.paymentStatus
             }));
             const worksheet = XLSX.utils.json_to_sheet(exportData);
             const workbook = XLSX.utils.book_new();
@@ -217,14 +236,44 @@
         }
 
         // 테이블 정렬
-        let sortOrder = true;
+        let currentSortCol = -1;
+        let currentSortAsc = true;
+
         function sortTable(n) {
-            sortOrder = !sortOrder;
+            // 정렬 방향 및 컬럼 설정
+            if (currentSortCol === n) {
+                currentSortAsc = !currentSortAsc;
+            } else {
+                currentSortCol = n;
+                currentSortAsc = true;
+            }
+
+            // 헤더 아이콘 업데이트
+            for (let i = 0; i <= 8; i++) {
+                const iconSpan = document.getElementById(`sort-icon-${i}`);
+                if (iconSpan) {
+                    iconSpan.innerText = (i === n) ? (currentSortAsc ? '▲' : '▼') : '↕';
+                    iconSpan.style.color = (i === n) ? '#e74c3c' : '#ccc';
+                }
+            }
+
             const sorted = [...runnersData].sort((a, b) => {
-                const fields = ['bibNumber', 'name', 'gender', 'birthYear', 'affiliation', 'phone'];
-                const valA = a[fields[n]] || '';
-                const valB = b[fields[n]] || '';
-                return sortOrder ? (valA > valB ? 1 : -1) : (valA < valB ? 1 : -1);
+                const fields = ['bibNumber', 'name', 'gender', 'birthYear', 'affiliation', 'phone', 'paymentStatus', 'finishTime', 'printCount'];
+                let valA = a[fields[n]];
+                let valB = b[fields[n]];
+                
+                if (valA == null) valA = '';
+                if (valB == null) valB = '';
+                
+                // 숫자 비교 (배번, 출생년도, 인쇄수)
+                if (n === 0 || n === 3 || n === 8) {
+                    valA = Number(valA);
+                    valB = Number(valB);
+                }
+
+                if (valA < valB) return currentSortAsc ? -1 : 1;
+                if (valA > valB) return currentSortAsc ? 1 : -1;
+                return 0;
             });
             renderTable(sorted);
         }
