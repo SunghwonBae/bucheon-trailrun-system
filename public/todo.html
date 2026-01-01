@@ -18,6 +18,12 @@
             box-shadow: 0 4px 0 rgba(0,0,0,0.1); transition: transform 0.2s;
         }
         .todo-item:active { cursor: grabbing; transform: translateY(4px); }
+        
+        /* 마스터 삭제 버튼 */
+        .btn-del-master {
+            margin-left: 5px; cursor: pointer; font-size: 0.8rem; opacity: 0.6;
+        }
+        .btn-del-master:hover { opacity: 1; color: red; }
 
         /* 이틀치 컨테이너 */
         .days-container { display: flex; gap: 20px; overflow-x: auto; }
@@ -55,6 +61,10 @@
         .color-circle:hover { transform: scale(1.2); }
         .color-circle.selected { border-color: #2d3436; transform: scale(1.1); }
         .modal-btns { display: flex; justify-content: space-around; margin-top: 20px; }
+
+        @media (max-width: 768px) {
+            .day-column { min-width: 100%; }
+        }
     </style>
 </head>
 <body>
@@ -70,7 +80,7 @@
 
     <div id="todoModal" class="modal-overlay" style="display: none;">
         <div class="modal-content">
-            <h3>✨ 새로운 퀘스트 만들기</h3>
+            <h3>✨ 새로운 할일 만들기</h3>
             <div class="input-group">
                 <label>이름:</label>
                 <input type="text" id="newTodoTitle" placeholder="예: 독서, 피아노, 줄넘기">
@@ -95,9 +105,9 @@
     </div>
 
     <div class="nav-btns">
-        <button onclick="changeDate(-2)">⬅️ 이전</button>
+        <button onclick="moveDate(-1)">⬅️ 이전</button>
         <h2 id="dateRange">날짜 로딩 중...</h2>
-        <button onclick="changeDate(2)">다음 ➡️</button>
+        <button onclick="moveDate(1)">다음 ➡️</button>
     </div>
 
     <div class="days-container" id="scheduleBoard">
@@ -121,20 +131,34 @@
 <script>
     const API_BASE = '/api/todo'; 
     let currentDate = new Date(); // 현재 기준 날짜
+    let daysToShow = 2; // 기본값 (PC)
 
     // 페이지 로드 시 실행
     document.addEventListener('DOMContentLoaded', () => {
+        updateDaysToShow();
         loadMasters();    // 1. 엄마의 할 일 목록 로드
         renderSchedule(); // 2. 시간표 그리기 및 데이터 로드
+    });
+
+    // 화면 크기 변경 감지
+    window.addEventListener('resize', () => {
+        const prevDays = daysToShow;
+        updateDaysToShow();
+        if (prevDays !== daysToShow) renderSchedule();
     });
 
     // =========================================
     // 1. 날짜 및 그리드 렌더링 (핵심 로직)
     // =========================================
 
+    function updateDaysToShow() {
+        daysToShow = window.innerWidth <= 768 ? 1 : 2;
+    }
+
     // 날짜 이동 버튼 클릭 시 호출
-    function changeDate(days) {
-        currentDate.setDate(currentDate.getDate() + days);
+    function moveDate(direction) {
+        // direction: -1 (이전), 1 (다음)
+        currentDate.setDate(currentDate.getDate() + (direction * daysToShow));
         renderSchedule(); // 날짜가 바뀌었으니 그리드 다시 그리기
     }
 
@@ -156,16 +180,23 @@
         
         gridContainer.innerHTML = ''; // 기존 표 삭제
 
-        // 1일차, 2일차 날짜 계산
-        const day1 = new Date(currentDate);
-        const day2 = new Date(currentDate);
-        day2.setDate(day2.getDate() + 1);
+        // 표시할 날짜 배열 생성
+        const dates = [];
+        for (let i = 0; i < daysToShow; i++) {
+            const d = new Date(currentDate);
+            d.setDate(d.getDate() + i);
+            dates.push(d);
+        }
 
         // 상단 날짜 표시 업데이트
-        dateRangeText.innerText = `${getDisplayDate(day1)} - ${getDisplayDate(day2)}`;
+        if (daysToShow === 1) {
+            dateRangeText.innerText = getDisplayDate(dates[0]);
+        } else {
+            dateRangeText.innerText = `${getDisplayDate(dates[0])} - ${getDisplayDate(dates[dates.length - 1])}`;
+        }
 
-        // 이틀치 루프 돌면서 표 생성
-        [day1, day2].forEach(dateObj => {
+        // 루프 돌면서 표 생성
+        dates.forEach(dateObj => {
             const dateStr = getDisplayDate(dateObj);   // 화면용
             const isoDate = getIsoDate(dateObj);       // 데이터용 (YYYY-MM-DD)
 
@@ -191,9 +222,16 @@
                     const isHour = (m === '00');
                     const time = `${String(h).padStart(2,'0')}:${m}`;
                     
+                    let displayTime = '';
+                    if (isHour) {
+                        const ampm = h < 12 ? '오전' : '오후';
+                        const hour12 = h > 12 ? h - 12 : h;
+                        displayTime = `${ampm} ${hour12}:${m}`;
+                    }
+
                     html += `
                         <tr class="time-row ${isHour ? 'on-hour' : 'half-hour'}">
-                            <td class="time-label">${isHour ? time : ''}</td>
+                            <td class="time-label">${displayTime}</td>
                             <td class="child-slot" data-child="하람" data-time="${time}" data-date="${isoDate}">
                                 <div class="slot-inner"></div>
                             </td>
@@ -215,7 +253,7 @@
         initSortableSlots();
 
         // 4. 서버에서 이 날짜들의 계획 불러오기
-        await loadPlans(getIsoDate(day1), getIsoDate(day2));
+        await loadPlans(getIsoDate(dates[0]), getIsoDate(dates[dates.length - 1]));
     }
 
     // =========================================
@@ -262,8 +300,11 @@
             const masters = await res.json();
             const container = document.getElementById('masterTodos');
             
-            container.innerHTML = masters.map(m => 
-                `<div class="todo-item" style="background: ${m.color};" data-id="${m.id}">${m.title}</div>`
+            container.innerHTML = masters.map(m => `
+                <div class="todo-item" style="background: ${m.color};" data-id="${m.id}">
+                    ${m.title}
+                    <span class="btn-del-master" onclick="deleteMaster(event, ${m.id})">❌</span>
+                </div>`
             ).join('');
 
             // 엄마 창고 Sortable (복제 모드)
@@ -294,6 +335,16 @@
                     
                     // 삭제 기능 (더블 클릭 시 삭제)
                     div.ondblclick = function() { deletePlan(p.id, div); };
+
+                    // [추가] 모바일: 길게 눌러서 삭제 (Long Press)
+                    let pressTimer;
+                    div.addEventListener('touchstart', function() {
+                        pressTimer = setTimeout(() => {
+                            deletePlan(p.id, div);
+                        }, 800); 
+                    }, {passive: true});
+                    div.addEventListener('touchend', () => clearTimeout(pressTimer));
+                    div.addEventListener('touchmove', () => clearTimeout(pressTimer));
                     
                     slot.appendChild(div);
                 }
@@ -323,6 +374,15 @@
             await fetch(`${API_BASE}/plans/${planId}`, { method: 'DELETE' });
             element.remove();
         }
+    }
+
+    // [추가] 마스터 할 일 삭제 (보물창고에서 제거, 과거 기록은 유지)
+    async function deleteMaster(event, id) {
+        event.stopPropagation(); // 드래그 방지
+        if(!confirm("보물창고에서 삭제하시겠습니까? (이미 배치된 일정은 유지됩니다)")) return;
+
+        await fetch(`${API_BASE}/masters/${id}`, { method: 'DELETE' });
+        loadMasters(); // 목록 갱신
     }
 
     // =========================================

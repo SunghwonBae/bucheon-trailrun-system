@@ -7,7 +7,9 @@ const prisma = new PrismaClient();
 // 1. 엄마가 만든 Todo 마스터 목록 가져오기
 router.get('/masters', async (req, res) => {
     try {
-        const masters = await prisma.todoMaster.findMany();
+        const masters = await prisma.todoMaster.findMany({
+            where: { isDeleted: false }
+        });
         res.json(masters);
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -50,6 +52,15 @@ router.post('/plans', async (req, res) => {
 // 5. 일정 삭제
 router.delete('/plans/:id', async (req, res) => {
     await prisma.todoPlan.delete({ where: { id: Number(req.params.id) } });
+    res.json({ success: true });
+});
+
+// [추가] Todo 마스터 삭제 (Soft Delete)
+router.delete('/masters/:id', async (req, res) => {
+    await prisma.todoMaster.update({
+        where: { id: Number(req.params.id) },
+        data: { isDeleted: true }
+    });
     res.json({ success: true });
 });
 

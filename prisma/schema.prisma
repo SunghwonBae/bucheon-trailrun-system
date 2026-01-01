@@ -51,6 +51,7 @@ model TodoMaster {
   id        Int      @id @default(autoincrement())
   title     String
   color     String   @default("#FFD700")
+  isDeleted Boolean  @default(false) // 삭제 여부 (Soft Delete)
   plans     TodoPlan[]
 }
 
