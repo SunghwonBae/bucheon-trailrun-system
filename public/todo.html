@@ -2,11 +2,13 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>아이들 시간 탐험대</title>
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
     <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
     <style>
         :root { --bg-color: #f0f9ff; --border-bold: 2px solid #3498db; --border-dot: 1px dashed #bdc3c7; }
+        * { box-sizing: border-box; }
         body { font-family: 'Jua', sans-serif; background: var(--bg-color); margin: 0; padding: 20px; }
         
         /* 엄마의 Todo 창고 */
@@ -163,7 +165,7 @@
     // =========================================
 
     function updateDaysToShow() {
-        daysToShow = window.innerWidth <= 768 ? 1 : 2;
+        daysToShow = window.matchMedia("(max-width: 768px)").matches ? 1 : 2;
     }
 
     // 날짜 이동 버튼 클릭 시 호출
@@ -451,22 +453,45 @@
     function downloadScheduleExcel() {
         const wb = XLSX.utils.book_new();
         const data = [];
-        
-        // 헤더 추가
-        data.push(["날짜", "시간", "하람", "움찬", "태랑"]);
-
-        // 현재 화면에 표시된 날짜(컬럼)들을 순회
         const columns = document.querySelectorAll('.day-column');
-        columns.forEach(col => {
-            const isoDate = col.dataset.date; // YYYY-MM-DD
+        
+        if (columns.length === 0) return;
 
-            // 해당 날짜의 시간표 행(tr) 순회
-            const rows = col.querySelectorAll('tbody tr');
-            rows.forEach(row => {
-                const slots = row.querySelectorAll('.child-slot');
-                const timeVal = slots[0].dataset.time; // 08:00, 08:30 등
+        // 1. 헤더 생성 (날짜 및 항목)
+        const headerRow1 = []; // 날짜 행
+        const headerRow2 = []; // 항목 행 (시간, 하람, 움찬, 태랑)
+        const colWidths = [];
+        const merges = [];
+
+        columns.forEach((col, idx) => {
+            const dateText = col.querySelector('h3').innerText; // 예: "5월 20일"
+            
+            // 날짜 헤더 (4칸 차지)
+            headerRow1.push(dateText, "", "", "");
+            merges.push({ s: {r:0, c:idx*4}, e: {r:0, c:idx*4+3} }); // 셀 병합 설정
+
+            // 항목 헤더
+            headerRow2.push("시간", "하람", "움찬", "태랑");
+            colWidths.push({wch: 12}, {wch: 20}, {wch: 20}, {wch: 20});
+        });
+
+        data.push(headerRow1);
+        data.push(headerRow2);
+
+        // 2. 데이터 행 생성 (시간대별로 모든 날짜의 데이터 수집)
+        // 첫 번째 컬럼의 행 개수(시간 슬롯 수)를 기준으로 반복
+        const rowCount = columns[0].querySelectorAll('tbody tr').length;
+        
+        for (let i = 0; i < rowCount; i++) {
+            const rowData = [];
+            
+            columns.forEach(col => {
+                const tr = col.querySelectorAll('tbody tr')[i];
+                const slots = tr.querySelectorAll('.child-slot');
+                // 시간 텍스트 (화면에 보이는 값 사용)
+                const timeText = tr.querySelector('.time-label').innerText;
                 
-                const rowData = [isoDate, timeVal];
+                rowData.push(timeText);
                 
                 // 하람, 움찬, 태랑 순서대로 할 일 텍스트 추출
                 slots.forEach(slot => {
@@ -475,62 +500,16 @@
                                        .join(', ');
                     rowData.push(items);
                 });
-                data.push(rowData);
             });
-        });
+            data.push(rowData);
+        }
 
         const ws = XLSX.utils.aoa_to_sheet(data);
         
         // 컬럼 너비 설정
-        ws['!cols'] = [{wch: 12}, {wch: 10}, {wch: 20}, {wch: 20}, {wch: 20}];
-
-        XLSX.utils.book_append_sheet(wb, ws, "시간표");
-        XLSX.writeFile(wb, `아이들_시간표_${new Date().toISOString().slice(0,10)}.xlsx`);
-    }
-
-    // =========================================
-    // 4. 팝업창 관련 (엄마가 할 일 추가)
-    // =========================================
-    async function saveNewMaster() {
-        const title = document.getElementById('newTodoTitle').value;
-        const color = document.getElementById('selectedColor').value;
-        if (!title) return alert("이름을 입력하세요");
-
-        await fetch(`${API_BASE}/masters`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ title, color })
-        });
-        
-        closeModal();
-        loadMasters();
-        document.getElementById('newTodoTitle').value = '';
-    }
-
-    function openModal() { document.getElementById('todoModal').style.display = 'flex'; }
-    function closeModal() { document.getElementById('todoModal').style.display = 'none'; }
-    function selectColor(el) {
-        document.querySelectorAll('.color-circle').forEach(c => c.classList.remove('selected'));
-        el.classList.add('selected');
-        document.getElementById('selectedColor').value = el.style.backgroundColor; 
-    }
-</script>
-</body>
-</html>         // 하람, 움찬, 태랑 순서대로 할 일 텍스트 추출
-                slots.forEach(slot => {
-                    const items = Array.from(slot.querySelectorAll('.todo-item'))
-                                       .map(item => item.innerText.replace('❌', '').trim()) // 삭제 버튼 텍스트 제거
-                                       .join(', ');
-                    rowData.push(items);
-                });
-                data.push(rowData);
-            });
-        });
-
-        const ws = XLSX.utils.aoa_to_sheet(data);
-        
-        // 컬럼 너비 설정
-        ws['!cols'] = [{wch: 12}, {wch: 10}, {wch: 20}, {wch: 20}, {wch: 20}];
+        ws['!cols'] = colWidths;
+        // 날짜 헤더 병합 적용
+        ws['!merges'] = merges;
 
         XLSX.utils.book_append_sheet(wb, ws, "시간표");
         XLSX.writeFile(wb, `아이들_시간표_${new Date().toISOString().slice(0,10)}.xlsx`);
