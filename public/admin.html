@@ -24,6 +24,7 @@
             display: inline-flex; align-items: center; justify-content: center;
         }
         .btn-excel { background: #27ae60; }
+        .btn-add { background: #16a085; }
         .btn-template { background: #34495e; }
         .btn-upload { background: #9b59b6; }
         .btn-reset { background: #e74c3c; }
@@ -37,6 +38,7 @@
     <h1 id="raceTitle">🏃 부천트라이 산악마라톤대회 관리자페이지</h1>
 
     <div class="controls">
+        <button class="btn btn-add" onclick="addNewRow()">➕ 신규등록</button>
         <button class="btn btn-excel" onclick="downloadExcel()">📊 전체목록 액셀다운로드</button>
         <button class="btn btn-template" onclick="downloadTemplate()">📥 업로드템플릿다운</button>
     
@@ -385,6 +387,70 @@
                 return 0;
             });
             renderTable(sorted);
+        }
+
+        // [기능] 신규 선수 행 추가
+        function addNewRow() {
+            const tbody = document.getElementById('runnerList');
+            const tr = document.createElement('tr');
+            tr.style.background = "#e8f8f5"; // 신규 행 강조 색상
+            tr.innerHTML = `
+                <td><input type="text" placeholder="배번" class="new-bib"></td>
+                <td><input type="text" placeholder="이름" class="new-name"></td>
+                <td><input type="text" placeholder="성별" class="new-gender"></td>
+                <td><input type="number" placeholder="년도" class="new-birth"></td>
+                <td><input type="text" placeholder="소속" class="new-affil"></td>
+                <td><input type="text" placeholder="연락처" class="new-phone"></td>
+                <td>
+                    <select class="new-payment">
+                        <option value="N">N (미입금)</option>
+                        <option value="Y">Y (확인)</option>
+                        <option value="F">F (무료)</option>
+                    </select>
+                </td>
+                <td>-</td>
+                <td>-</td>
+                <td>
+                    <button onclick="saveNewRunner(this)" class="btn" style="background:#2ecc71; padding:5px 10px; font-size:0.8rem;">💾 저장</button>
+                    <button onclick="this.closest('tr').remove()" class="btn" style="background:#95a5a6; padding:5px 10px; font-size:0.8rem;">❌ 취소</button>
+                </td>
+            `;
+            tbody.prepend(tr); // 최상단에 추가
+        }
+
+        // [기능] 신규 선수 저장
+        async function saveNewRunner(btn) {
+            const tr = btn.closest('tr');
+            const bib = tr.querySelector('.new-bib').value;
+            const name = tr.querySelector('.new-name').value;
+
+            if(!bib || !name) return alert("배번과 이름은 필수입니다.");
+
+            const newRunner = {
+                bibNumber: bib,
+                name: name,
+                gender: tr.querySelector('.new-gender').value,
+                birthYear: tr.querySelector('.new-birth').value,
+                affiliation: tr.querySelector('.new-affil').value,
+                phone: tr.querySelector('.new-phone').value,
+                paymentStatus: tr.querySelector('.new-payment').value
+            };
+
+            try {
+                // 기존 Bulk API 재사용 (배열로 전송)
+                const response = await fetch('/api/runners/bulk', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify([newRunner])
+                });
+                const result = await response.json();
+                alert("저장되었습니다.");
+                tr.remove(); // 입력 행 삭제
+                fetchRunners(); // 목록 갱신
+            } catch (err) {
+                console.error(err);
+                alert("저장 실패: 배번 중복 등을 확인해주세요.");
+            }
         }
 
         fetchRunners();

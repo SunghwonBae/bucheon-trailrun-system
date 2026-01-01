@@ -34,3 +34,14 @@ model TrailRunner {
 
   @@map("trail_runners") // DB 테이블 이름을 trail_runners로 설정
 }
+
+// [추가] 대회 설정 관리 (년도별)
+model RaceSetting {
+  id            Int     @id @default(autoincrement())
+  year          Int     @unique
+  goalRadius    Int     @default(20)
+  rankLimit     Int     @default(5)
+  seniorYear    Int     // 청장년 구분 년도
+  finishLineLat Float   @default(37.503)
+  finishLineLng Float   @default(126.795)
+}

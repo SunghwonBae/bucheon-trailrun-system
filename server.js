@@ -17,10 +17,30 @@ const yearCondition = { gte: startOfYear, lt: endOfYear };
 
 app.use(express.static('public'));
 
-let goalRadius = 20; // 기본값 20m
-let rankLimit = 5;   // 기본값 5위까지
-let seniorYear = currentYear - 48; // 기본값: 2026년 기준 1978년생 (만 48세)
-let FINISH_LINE = { lat: 37.503, lng: 126.795 }; // [변경] 골인 지점 (가변)
+// [변경] DB 연동을 위한 전역 변수 초기화 (loadRaceSettings에서 덮어씀)
+let goalRadius = 20; 
+let rankLimit = 5;   
+let seniorYear = currentYear - 48; 
+let FINISH_LINE = { lat: 37.503, lng: 126.795 }; 
+
+// [함수] 대회 설정 로드 (DB 연동)
+async function loadRaceSettings() {
+    try {
+        let settings = await prisma.raceSetting.findUnique({ where: { year: currentYear } });
+        if (!settings) {
+            settings = await prisma.raceSetting.create({
+                data: { year: currentYear, goalRadius, rankLimit, seniorYear, finishLineLat: FINISH_LINE.lat, finishLineLng: FINISH_LINE.lng }
+            });
+        }
+        goalRadius = settings.goalRadius;
+        rankLimit = settings.rankLimit;
+        seniorYear = settings.seniorYear;
+        FINISH_LINE = { lat: settings.finishLineLat, lng: settings.finishLineLng };
+        console.log(`[설정 로드] ${currentYear}년도 설정 적용: 반경 ${goalRadius}m, 장년 ${seniorYear}년생, 순위 ${rankLimit}위`);
+    } catch (err) {
+        console.error("설정 로드 실패:", err);
+    }
+}
 
 // server.js 상단에 좌표 계산 함수 추가
 function getDistance(lat1, lon1, lat2, lon2) {
@@ -211,14 +231,22 @@ io.on('connection', async (socket) => {
     });
 
     // [추가] 관리자 거리 설정 변경 이벤트
-    socket.on('update_radius', (newRadius) => {
+    socket.on('update_radius', async (newRadius) => {
         goalRadius = Number(newRadius);
+        await prisma.raceSetting.update({
+            where: { year: currentYear },
+            data: { goalRadius }
+        });
         io.emit('radius_changed', goalRadius); // 모든 관리자에게 알림
     });
 
     // [추가] 골인 지점 변경 이벤트
-    socket.on('update_finish_line', (coords) => {
+    socket.on('update_finish_line', async (coords) => {
         FINISH_LINE = coords;
+        await prisma.raceSetting.update({
+            where: { year: currentYear },
+            data: { finishLineLat: coords.lat, finishLineLng: coords.lng }
+        });
         io.emit('finish_line_changed', FINISH_LINE); // 모든 관리자에게 알림
     });
 
@@ -227,6 +255,11 @@ io.on('connection', async (socket) => {
         if (data.rankLimit) rankLimit = Number(data.rankLimit);
         if (data.seniorYear) seniorYear = Number(data.seniorYear);
         
+        await prisma.raceSetting.update({
+            where: { year: currentYear },
+            data: { rankLimit, seniorYear }
+        });
+
         // 변경된 설정 브로드캐스트 (다른 관리자 화면 동기화)
         io.emit('settings_changed', { rankLimit, seniorYear });
         
@@ -298,7 +331,8 @@ io.on('connection', async (socket) => {
                         gender: runner.gender,
                         birthYear: Number(runner.birthYear),
                         affiliation: runner.affiliation,
-                        phone: String(runner.phone || '')
+                        phone: String(runner.phone || ''),
+                        ...(runner.paymentStatus && { paymentStatus: runner.paymentStatus })
                     },
                     create: {
                         bibNumber: String(runner.bibNumber),
@@ -306,7 +340,8 @@ io.on('connection', async (socket) => {
                         gender: runner.gender,
                         birthYear: Number(runner.birthYear),
                         affiliation: runner.affiliation,
-                        phone: String(runner.phone || '')
+                        phone: String(runner.phone || ''),
+                        ...(runner.paymentStatus && { paymentStatus: runner.paymentStatus })
                     }
                 });
             });
@@ -340,4 +375,6 @@ io.on('connection', async (socket) => {
 });
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log(`서버 실행 중: ${PORT}`));
+loadRaceSettings().then(() => {
+    server.listen(PORT, () => console.log(`서버 실행 중: ${PORT}`));
+});
