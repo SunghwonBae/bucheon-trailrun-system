@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>부천트라이 트레일러닝</title>
+    <title>부천트라이 산악마라톤대회</title>
     <style>
         body { font-family: 'Pretendard', sans-serif; background: #f4f6f9; margin: 0; padding: 10px; text-align: center; }
         
@@ -44,7 +44,7 @@
     </style>
 </head>
 <body>
-
+    <h1 id="raceTitle">🏃 부천트라이 산악마라톤대회</h1>
     <div class="timer-box">
         <div class="info-text">경과 시간</div>
         <div id="timerDisplay">READY</div>
@@ -112,6 +112,12 @@
     <script src="/socket.io/socket.io.js"></script>
     <script>
         const socket = io();
+
+        // [자동 설정] 현재 연도 적용
+        const currentYear = new Date().getFullYear();
+        document.title = `${currentYear} 부천트라이 산악마라톤대회`;
+        document.getElementById('raceTitle').innerText = `🏃 ${currentYear} 부천트라이 산악마라톤대회`;
+
         let raceStartTime = null;
         let timerInterval = null;
 

@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <title>개별 기록증 출력</title>
+    <title>부천트라이 산악마라톤대회 - 기록증</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&display=swap');
 
@@ -81,6 +81,11 @@
         const socket = io();
         const urlParams = new URLSearchParams(window.location.search);
         const bib = urlParams.get('bib');
+
+                        // [자동 설정] 현재 연도 적용
+        const currentYear = new Date().getFullYear();
+        document.title = `${currentYear} 부천트라이 산악마라톤대회 - 기록증`;
+
 
         // 페이지 로드 시 해당 선수 정보 요청
         socket.emit('get_runner_info', bib);

@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <title>입상자 상장 출력</title>
+    <title>부천트라이 산악마라톤대회 - 입상자상장</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&display=swap');
 
@@ -78,6 +78,9 @@
     <script src="/socket.io/socket.io.js"></script>
     <script>
         const socket = io();
+
+        const currentYear = new Date().getFullYear();
+        document.title = `${currentYear} 부천트라이 산악마라톤대회 - 입상자상장`;
 
         // 1. 서버에서 순위 데이터 가져오기
         socket.on('update_ui', (data) => {

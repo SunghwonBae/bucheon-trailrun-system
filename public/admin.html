@@ -34,7 +34,7 @@
 </head>
 <body>
     <div id="toast" class="toast">수정되었습니다.</div>
-    <h1>🏃 부천트라이 산악마라톤대회 선수정보관리</h1>
+    <h1 id="raceTitle">🏃 부천트라이 산악마라톤대회 관리자페이지</h1>
 
     <div class="controls">
         <button class="btn btn-excel" onclick="downloadExcel()">📊 전체목록 액셀다운로드</button>
@@ -93,7 +93,9 @@
 
     <script>
         const socket = io();
-
+        const currentYear = new Date().getFullYear();
+        document.title = `${currentYear} 부천트라이 산악마라톤대회 - 관리자페이지`;
+        document.getElementById('raceTitle').innerText = `🏃 ${currentYear} 부천트라이 산악마라톤대회 - 관리자페이지`;
         // 구글 지도 관련 변수 및 함수
         let map, marker;
         let savedFinishLine = { lat: 37.503, lng: 126.795 }; // 기본값

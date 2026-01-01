@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>부천트라이 - 자동 골인 시스템</title>
+    <title>부천트라이 산악마라톤대회 - 자동골인</title>
     <style>
         body { font-family: 'Pretendard', sans-serif; text-align: center; margin: 0; padding: 0; background: #f4f7f6; color: #333; }
         
@@ -39,7 +39,7 @@
     </style>
 </head>
 <body>
-
+    <h1 id="raceTitle">🏃 부천트라이 산악마라톤대회 자동골인</h1>
     <div class="notice-banner">
         <span>⚠️ 자동 골인 시스템 안내</span>
         1. <strong>공식 기록 우선:</strong> GPX 기록은 보완용이며, 최종 순위는 <strong>심판의 수동 기록이 우선</strong>합니다.<br>
@@ -77,6 +77,11 @@
     <script>
         const socket = io();
         let watchId = null;
+
+                // [자동 설정] 현재 연도 적용
+        const currentYear = new Date().getFullYear();
+        document.title = `${currentYear} 부천트라이 산악마라톤대회 - 자동골인`;
+        document.getElementById('raceTitle').innerText = `🏃 ${currentYear} 부천트라이 산악마라톤대회 - 자동골인`;
 
         function startTracking() {
             const bib = document.getElementById('bibNumber').value;
