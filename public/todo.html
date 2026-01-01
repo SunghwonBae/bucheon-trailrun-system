@@ -119,139 +119,58 @@
         </div>
 
 <script>
-    const API_BASE = '/api/todo'; // 라우터 경로
-
-    // =========================================
-    // 1. 초기화 및 날짜 관련 (일단 오늘 날짜로 세팅)
-    // =========================================
-    let currentDate = new Date(); // 현재 보고 있는 기준 날짜
+    const API_BASE = '/api/todo'; 
+    let currentDate = new Date(); // 현재 기준 날짜
 
     // 페이지 로드 시 실행
     document.addEventListener('DOMContentLoaded', () => {
-        updateDateDisplay();
-        loadMasters(); // 엄마의 할 일 목록 불러오기
-        initGrid();    // 시간표 틀 만들기 (껍데기)
+        loadMasters();    // 1. 엄마의 할 일 목록 로드
+        renderSchedule(); // 2. 시간표 그리기 및 데이터 로드
     });
 
-    function updateDateDisplay() {
-        // 날짜 포맷팅 (예: 5월 20일)
-        const options = { month: 'long', day: 'numeric' };
-        const startStr = currentDate.toLocaleDateString('ko-KR', options);
-        
-        // 내일 날짜 계산
-        let nextDate = new Date(currentDate);
-        nextDate.setDate(currentDate.getDate() + 1);
-        const endStr = nextDate.toLocaleDateString('ko-KR', options);
+    // =========================================
+    // 1. 날짜 및 그리드 렌더링 (핵심 로직)
+    // =========================================
 
-        document.getElementById('dateRange').innerText = `${startStr} - ${endStr}`;
-    }
-
-    // 날짜 이동 (작동하도록 수정됨)
+    // 날짜 이동 버튼 클릭 시 호출
     function changeDate(days) {
         currentDate.setDate(currentDate.getDate() + days);
-        updateDateDisplay();
-        // TODO: 나중에 여기서 loadPlans()를 호출해 일정을 새로고침 해야 함
+        renderSchedule(); // 날짜가 바뀌었으니 그리드 다시 그리기
     }
 
-
-    // =========================================
-    // 2. 엄마의 할 일(Master Todo) 기능
-    // =========================================
-
-    // 서버에서 목록 가져오기
-    async function loadMasters() {
-        try {
-            const res = await fetch(`${API_BASE}/masters`);
-            const masters = await res.json();
-            
-            const container = document.getElementById('masterTodos');
-            container.innerHTML = ''; // 초기화
-
-            masters.forEach(m => {
-                const div = document.createElement('div');
-                div.className = 'todo-item';
-                div.style.background = m.color;
-                div.innerText = m.title;
-                div.dataset.id = m.id; // 드래그할 때 식별자
-                container.appendChild(div);
-            });
-
-            // 드래그 앤 드롭 기능 재연결
-            new Sortable(container, {
-                group: { name: 'shared', pull: 'clone', put: false }, // 복제 모드
-                sort: false,
-                animation: 150
-            });
-
-        } catch (err) {
-            console.error("할 일 목록 로드 실패:", err);
-            document.getElementById('masterTodos').innerHTML = "서버 연결 실패 😢";
-        }
+    // 날짜 포맷 헬퍼 (YYYY-MM-DD) - 서버 전송용
+    function getIsoDate(dateObj) {
+        const offset = dateObj.getTimezoneOffset() * 60000;
+        return new Date(dateObj.getTime() - offset).toISOString().split('T')[0];
     }
 
-    // 새 할 일 저장하기 (서버로 전송)
-    async function saveNewMaster() {
-        const title = document.getElementById('newTodoTitle').value;
-        const color = document.getElementById('selectedColor').value;
-
-        if (!title) {
-            alert("할 일 이름을 입력해주세요!");
-            return;
-        }
-
-        try {
-            const res = await fetch(`${API_BASE}/masters`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ title, color })
-            });
-
-            if (res.ok) {
-                closeModal();
-                loadMasters(); // 목록 새로고침
-                document.getElementById('newTodoTitle').value = ''; // 입력창 비우기
-            } else {
-                alert("저장에 실패했습니다.");
-            }
-        } catch (err) {
-            console.error(err);
-        }
+    // 날짜 포맷 헬퍼 (M월 D일) - 화면 표시용
+    function getDisplayDate(dateObj) {
+        return dateObj.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric' });
     }
 
-
-    // =========================================
-    // 3. UI 헬퍼 함수들 (모달, 그리드 등)
-    // =========================================
-
-    function openModal() { document.getElementById('todoModal').style.display = 'flex'; }
-    function closeModal() { document.getElementById('todoModal').style.display = 'none'; }
-    
-    // 색상 선택 시 테두리 효과
-    function selectColor(el) {
-        document.querySelectorAll('.color-circle').forEach(c => c.classList.remove('selected'));
-        el.classList.add('selected');
-        // rgb -> hex 변환 또는 배경색 그대로 값으로 사용
-        // 여기선 편의상 element의 style.background 값을 가져갑니다.
-        // 하지만 background값이 rgb(...)로 잡힐 수 있으므로, 
-        // 간단하게 미리 지정된 hex값을 data속성으로 두는게 좋지만, 
-        // 지금은 직관적인 rgb값도 DB 저장에 문제 없으므로 그대로 둡니다.
-        document.getElementById('selectedColor').value = el.style.backgroundColor; 
-    }
-
-    // 시간표 그리드 그리기 (기존 코드 유지하되, 약간 다듬음)
-    function initGrid() {
+    // 그리드 전체 다시 그리기
+    async function renderSchedule() {
         const gridContainer = document.getElementById('scheduleBoard');
-        gridContainer.innerHTML = ''; // 초기화
+        const dateRangeText = document.getElementById('dateRange');
+        
+        gridContainer.innerHTML = ''; // 기존 표 삭제
 
-        // 오늘, 내일 2일치 생성
-        [0, 1].forEach(dayOffset => {
-            let d = new Date(currentDate);
-            d.setDate(d.getDate() + dayOffset);
-            const dateStr = d.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric' });
+        // 1일차, 2일차 날짜 계산
+        const day1 = new Date(currentDate);
+        const day2 = new Date(currentDate);
+        day2.setDate(day2.getDate() + 1);
 
-            // HTML 문자열 생성
-            let tableHTML = `
-                <div class="day-column">
+        // 상단 날짜 표시 업데이트
+        dateRangeText.innerText = `${getDisplayDate(day1)} - ${getDisplayDate(day2)}`;
+
+        // 이틀치 루프 돌면서 표 생성
+        [day1, day2].forEach(dateObj => {
+            const dateStr = getDisplayDate(dateObj);   // 화면용
+            const isoDate = getIsoDate(dateObj);       // 데이터용 (YYYY-MM-DD)
+
+            let html = `
+                <div class="day-column" data-date="${isoDate}">
                     <h3 align="center">${dateStr}</h3>
                     <table class="schedule-table">
                         <thead>
@@ -265,33 +184,172 @@
                         <tbody>
             `;
 
-            // 08:00 ~ 22:00 루프
+            // 08:00 ~ 22:00 시간 슬롯 생성
             for(let h=8; h<=22; h++) {
                 ['00', '30'].forEach(m => {
                     if(h===22 && m==='30') return;
                     const isHour = (m === '00');
-                    const timeLabel = `${String(h).padStart(2,'0')}:${m}`;
+                    const time = `${String(h).padStart(2,'0')}:${m}`;
                     
-                    tableHTML += `
+                    html += `
                         <tr class="time-row ${isHour ? 'on-hour' : 'half-hour'}">
-                            <td class="time-label">${isHour ? timeLabel : ''}</td>
-                            <td class="child-slot" data-child="하람" data-time="${timeLabel}">
+                            <td class="time-label">${isHour ? time : ''}</td>
+                            <td class="child-slot" data-child="하람" data-time="${time}" data-date="${isoDate}">
                                 <div class="slot-inner"></div>
                             </td>
-                            <td class="child-slot" data-child="움찬" data-time="${timeLabel}">
+                            <td class="child-slot" data-child="움찬" data-time="${time}" data-date="${isoDate}">
                                 <div class="slot-inner"></div>
                             </td>
-                            <td class="child-slot" data-child="태랑" data-time="${timeLabel}">
+                            <td class="child-slot" data-child="태랑" data-time="${time}" data-date="${isoDate}">
                                 <div class="slot-inner"></div>
                             </td>
                         </tr>
                     `;
                 });
             }
-
-            tableHTML += `</tbody></table></div>`;
-            gridContainer.insertAdjacentHTML('beforeend', tableHTML);
+            html += `</tbody></table></div>`;
+            gridContainer.insertAdjacentHTML('beforeend', html);
         });
+
+        // 3. 표를 다 그렸으니, 드래그 앤 드롭 기능 활성화
+        initSortableSlots();
+
+        // 4. 서버에서 이 날짜들의 계획 불러오기
+        await loadPlans(getIsoDate(day1), getIsoDate(day2));
+    }
+
+    // =========================================
+    // 2. 드래그 앤 드롭 (SortableJS) 연결
+    // =========================================
+    function initSortableSlots() {
+        document.querySelectorAll('.slot-inner').forEach(slot => {
+            new Sortable(slot, {
+                group: 'shared',
+                animation: 150,
+                onAdd: async function (evt) {
+                    const item = evt.item;          // 드롭된 아이템
+                    const masterId = item.dataset.id; // 엄마의 할일 ID
+                    
+                    // 드롭된 위치 정보 파악
+                    const parentTd = evt.to.parentElement; 
+                    const child = parentTd.dataset.child;
+                    const time = parentTd.dataset.time;
+                    const date = parentTd.dataset.date; // 아까 넣어둔 날짜 속성
+
+                    // 서버 저장
+                    console.log(`저장 시도: ${child}, ${date}, ${time}`);
+                    const saved = await savePlan(masterId, child, date, time);
+                    
+                    // 저장된 ID 부여 (나중에 삭제할 때 필요)
+                    if(saved) item.dataset.planId = saved.id;
+                },
+                // 아이템을 밖으로 빼면 삭제 (선택 사항)
+                onRemove: function (evt) {
+                    // 다른 슬롯으로 이동한게 아니라 아예 목록 밖으로 버렸을 때 처리 로직 필요 시 추가
+                }
+            });
+        });
+    }
+
+    // =========================================
+    // 3. 서버 통신 (데이터 로드 & 저장)
+    // =========================================
+
+    // 엄마의 할 일 목록 가져오기
+    async function loadMasters() {
+        try {
+            const res = await fetch(`${API_BASE}/masters`);
+            const masters = await res.json();
+            const container = document.getElementById('masterTodos');
+            
+            container.innerHTML = masters.map(m => 
+                `<div class="todo-item" style="background: ${m.color};" data-id="${m.id}">${m.title}</div>`
+            ).join('');
+
+            // 엄마 창고 Sortable (복제 모드)
+            new Sortable(container, {
+                group: { name: 'shared', pull: 'clone', put: false },
+                sort: false, animation: 150
+            });
+        } catch(err) { console.error(err); }
+    }
+
+    // 배치된 일정 불러와서 화면에 뿌리기
+    async function loadPlans(startDate, endDate) {
+        try {
+            const res = await fetch(`${API_BASE}/plans?startDate=${startDate}&endDate=${endDate}`);
+            const plans = await res.json();
+
+            plans.forEach(p => {
+                // 정확한 위치(날짜 + 아이 + 시간) 찾기
+                const selector = `.child-slot[data-date="${p.planDate}"][data-child="${p.childName}"][data-time="${p.timeSlot}"] .slot-inner`;
+                const slot = document.querySelector(selector);
+                
+                if(slot) {
+                    const div = document.createElement('div');
+                    div.className = 'todo-item';
+                    div.style.background = p.todoMaster.color;
+                    div.innerText = p.todoMaster.title;
+                    div.dataset.planId = p.id;
+                    
+                    // 삭제 기능 (더블 클릭 시 삭제)
+                    div.ondblclick = function() { deletePlan(p.id, div); };
+                    
+                    slot.appendChild(div);
+                }
+            });
+        } catch(err) { console.error("일정 로드 실패:", err); }
+    }
+
+    // 일정 저장 API
+    async function savePlan(masterId, child, date, time) {
+        try {
+            const res = await fetch(`${API_BASE}/plans`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ todoMasterId: masterId, childName: child, planDate: date, timeSlot: time })
+            });
+            const data = await res.json();
+            return data;
+        } catch(err) {
+            alert("저장 실패!");
+            return null;
+        }
+    }
+
+    // [추가 기능] 일정 삭제 API (더블 클릭 시)
+    async function deletePlan(planId, element) {
+        if(confirm('이 할 일을 삭제할까요?')) {
+            await fetch(`${API_BASE}/plans/${planId}`, { method: 'DELETE' });
+            element.remove();
+        }
+    }
+
+    // =========================================
+    // 4. 팝업창 관련 (엄마가 할 일 추가)
+    // =========================================
+    async function saveNewMaster() {
+        const title = document.getElementById('newTodoTitle').value;
+        const color = document.getElementById('selectedColor').value;
+        if (!title) return alert("이름을 입력하세요");
+
+        await fetch(`${API_BASE}/masters`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ title, color })
+        });
+        
+        closeModal();
+        loadMasters();
+        document.getElementById('newTodoTitle').value = '';
+    }
+
+    function openModal() { document.getElementById('todoModal').style.display = 'flex'; }
+    function closeModal() { document.getElementById('todoModal').style.display = 'none'; }
+    function selectColor(el) {
+        document.querySelectorAll('.color-circle').forEach(c => c.classList.remove('selected'));
+        el.classList.add('selected');
+        document.getElementById('selectedColor').value = el.style.backgroundColor; 
     }
 </script>
 </body>
