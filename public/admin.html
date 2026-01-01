@@ -308,7 +308,7 @@
         // 1. 업로드용 템플릿 다운로드 함수
         function downloadTemplate() {
             const templateData = [
-                { bibNumber: "101", name: "홍길동", gender: "남", birthYear: 1980, affiliation: "부천트라이", phone: "010-1234-5678" }
+                { bibNumber: "101", name: "홍길동", gender: "남", birthYear: 1980, affiliation: "부천트라이", phone: "010-1234-5678", paymentStatus: "N" }
             ];
             const worksheet = XLSX.utils.json_to_sheet(templateData);
             const workbook = XLSX.utils.book_new();
