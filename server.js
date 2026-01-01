@@ -28,37 +28,7 @@ function getDistance(lat1, lon1, lat2, lon2) {
 // 골인 지점 설정 (부천종합운동장 입구 근처 예시 - 실제 좌표로 수정 필요)
 const FINISH_LINE = { lat: 37.503, lng: 126.795 }; 
 
-/**
- * 선수가 출발후 30분이 지나서 골인반경 20m 내에 들어오면 자동골인처리
- */
-socket.on('player_location', async (data) => {
-    const { bibNumber, lat, lng } = data;
-    const runner = await prisma.trailRunner.findUnique({ where: { bibNumber: String(bibNumber) } });
 
-    if (runner && runner.startTime) {
-        const distance = getDistance(lat, lng, FINISH_LINE.lat, FINISH_LINE.lng);
-        const diffMinutes = (new Date() - new Date(runner.startTime)) / (1000 * 60);
-
-        socket.emit('distance_update', { distance: Math.round(distance) });
-
-        // 30분 경과 및 설정된 반경 이내 진입 시 (이미 기록이 있더라도 GPX 데이터는 남김)
-        if (diffMinutes >= 30 && distance <= goalRadius && !runner.autoFinishTime) {
-            await prisma.trailRunner.update({
-                where: { bibNumber: String(bibNumber) },
-                data: { autoFinishTime: new Date() } // 자동 기록 필드에 저장
-            });
-            const newData = await getRaceData();
-            io.emit('update_ui', newData);
-            socket.emit('auto_goal_success', { name: runner.name });
-        }
-    }
-});
-
-// [추가] 관리자 거리 설정 변경 이벤트
-socket.on('update_radius', (newRadius) => {
-    goalRadius = Number(newRadius);
-    io.emit('radius_changed', goalRadius); // 모든 관리자에게 알림
-});
 
 // [함수] 모든 대회 데이터(입상자, 미골인자, 전체 골인자) 가져오기
 async function getRaceData() {
@@ -171,7 +141,9 @@ io.on('connection', async (socket) => {
         }
     });
 
-    // server.js 중 GPX 감지 부분
+    /**
+     * 선수가 출발후 30분이 지나서 골인반경 20m 내에 들어오면 자동골인처리
+     */
     socket.on('player_location', async (data) => {
         const { bibNumber, lat, lng } = data;
         const runner = await prisma.trailRunner.findUnique({ where: { bibNumber: String(bibNumber) } });
@@ -193,6 +165,12 @@ io.on('connection', async (socket) => {
                 socket.emit('auto_goal_success', { name: runner.name });
             }
         }
+    });
+
+    // [추가] 관리자 거리 설정 변경 이벤트
+    socket.on('update_radius', (newRadius) => {
+        goalRadius = Number(newRadius);
+        io.emit('radius_changed', goalRadius); // 모든 관리자에게 알림
     });
 
     // [API] 모든 선수 목록 가져오기
