@@ -64,4 +64,14 @@ router.delete('/masters/:id', async (req, res) => {
     res.json({ success: true });
 });
 
+// [추가] 할 일 완료(별표시) 토글
+router.patch('/plans/:id/complete', async (req, res) => {
+    const { isCompleted } = req.body;
+    const plan = await prisma.todoPlan.update({
+        where: { id: Number(req.params.id) },
+        data: { isCompleted: Boolean(isCompleted) }
+    });
+    res.json(plan);
+});
+
 module.exports = router;

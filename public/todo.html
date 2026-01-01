@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <title>아이들 시간 탐험대</title>
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+    <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
     <style>
         :root { --bg-color: #f0f9ff; --border-bold: 2px solid #3498db; --border-dot: 1px dashed #bdc3c7; }
         body { font-family: 'Jua', sans-serif; background: var(--bg-color); margin: 0; padding: 20px; }
@@ -48,6 +49,10 @@
         .header-section { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
         .btn-add-todo { background: #6c5ce7; color: white; border: none; padding: 10px 20px; border-radius: 20px; cursor: pointer; font-weight: bold; box-shadow: 0 4px 0 #4834d4; transition: 0.2s; }
         .btn-add-todo:active { transform: translateY(4px); box-shadow: none; }
+        .btn-excel { background: #27ae60; color: white; border: none; padding: 10px 20px; border-radius: 20px; cursor: pointer; font-weight: bold; box-shadow: 0 4px 0 #219150; transition: 0.2s; margin-right: 10px; }
+        .btn-excel:active { transform: translateY(4px); box-shadow: none; }
+        .btn-star { background: #f1c40f; color: #2d3436; border: none; padding: 10px 20px; border-radius: 20px; cursor: pointer; font-weight: bold; box-shadow: 0 4px 0 #f39c12; transition: 0.2s; margin-right: 10px; }
+        .btn-star:active { transform: translateY(4px); box-shadow: none; }
 
         /* 모달창(팝업) 스타일 */
         .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: flex; justify-content: center; align-items: center; z-index: 1000; }
@@ -71,7 +76,11 @@
 
     <div class="header-section">
         <h2>🎒 할 일 보물창고</h2>
-        <button onclick="openModal()" class="btn-add-todo">➕ 새 할일 만들기</button>
+        <div>
+            <button id="momBtn" onclick="toggleMomLogin()" class="btn-star">⭐ 별표시하기</button>
+            <button onclick="downloadScheduleExcel()" class="btn-excel">📊 엑셀 다운로드</button>
+            <button onclick="openModal()" class="btn-add-todo">➕ 새 할일 만들기</button>
+        </div>
     </div>
 
     <div class="todo-storage" id="masterTodos">
@@ -132,9 +141,11 @@
     const API_BASE = '/api/todo'; 
     let currentDate = new Date(); // 현재 기준 날짜
     let daysToShow = 2; // 기본값 (PC)
+    let isMomMode = false; // 엄마 로그인 상태
 
     // 페이지 로드 시 실행
     document.addEventListener('DOMContentLoaded', () => {
+        checkMomMode(); // 엄마 로그인 상태 확인
         updateDaysToShow();
         loadMasters();    // 1. 엄마의 할 일 목록 로드
         renderSchedule(); // 2. 시간표 그리기 및 데이터 로드
@@ -330,8 +341,14 @@
                     const div = document.createElement('div');
                     div.className = 'todo-item';
                     div.style.background = p.todoMaster.color;
-                    div.innerText = p.todoMaster.title;
+                    // 완료(별) 표시 처리
+                    div.innerText = (p.isCompleted ? "★ " : "") + p.todoMaster.title;
                     div.dataset.planId = p.id;
+
+                    // [추가] 엄마 모드일 때 클릭 시 별 토글
+                    div.onclick = function() {
+                        if (isMomMode) toggleComplete(p.id, !p.isCompleted);
+                    };
                     
                     // 삭제 기능 (더블 클릭 시 삭제)
                     div.ondblclick = function() { deletePlan(p.id, div); };
@@ -383,6 +400,140 @@
 
         await fetch(`${API_BASE}/masters/${id}`, { method: 'DELETE' });
         loadMasters(); // 목록 갱신
+    }
+
+    // [추가] 엄마 로그인/로그아웃 토글
+    function toggleMomLogin() {
+        if (isMomMode) {
+            localStorage.removeItem('mom_access');
+            isMomMode = false;
+            alert("엄마 로그아웃 되었습니다.");
+        } else {
+            const pw = prompt("엄마 비밀번호를 입력하세요:");
+            if (pw === '0627') {
+                localStorage.setItem('mom_access', 'granted');
+                isMomMode = true;
+                alert("엄마 로그인 성공! 할 일을 클릭하면 별을 줄 수 있어요.");
+            } else {
+                alert("비밀번호가 틀렸습니다.");
+            }
+        }
+        updateMomBtnUI();
+    }
+
+    function checkMomMode() {
+        isMomMode = localStorage.getItem('mom_access') === 'granted';
+        updateMomBtnUI();
+    }
+
+    function updateMomBtnUI() {
+        const btn = document.getElementById('momBtn');
+        if(isMomMode) {
+            btn.innerText = "🔒 엄마 로그아웃";
+            btn.style.background = "#fab1a0"; 
+        } else {
+            btn.innerText = "⭐ 별표시하기";
+            btn.style.background = "#f1c40f"; 
+        }
+    }
+
+    // [추가] 할 일 완료(별) 토글 API 호출
+    async function toggleComplete(planId, newState) {
+        await fetch(`${API_BASE}/plans/${planId}/complete`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ isCompleted: newState })
+        });
+        renderSchedule(); // 화면 갱신
+    }
+
+    // [추가] 엑셀 다운로드 기능
+    function downloadScheduleExcel() {
+        const wb = XLSX.utils.book_new();
+        const data = [];
+        
+        // 헤더 추가
+        data.push(["날짜", "시간", "하람", "움찬", "태랑"]);
+
+        // 현재 화면에 표시된 날짜(컬럼)들을 순회
+        const columns = document.querySelectorAll('.day-column');
+        columns.forEach(col => {
+            const isoDate = col.dataset.date; // YYYY-MM-DD
+
+            // 해당 날짜의 시간표 행(tr) 순회
+            const rows = col.querySelectorAll('tbody tr');
+            rows.forEach(row => {
+                const slots = row.querySelectorAll('.child-slot');
+                const timeVal = slots[0].dataset.time; // 08:00, 08:30 등
+                
+                const rowData = [isoDate, timeVal];
+                
+                // 하람, 움찬, 태랑 순서대로 할 일 텍스트 추출
+                slots.forEach(slot => {
+                    const items = Array.from(slot.querySelectorAll('.todo-item'))
+                                       .map(item => item.innerText.replace('❌', '').trim()) // 삭제 버튼 텍스트 제거
+                                       .join(', ');
+                    rowData.push(items);
+                });
+                data.push(rowData);
+            });
+        });
+
+        const ws = XLSX.utils.aoa_to_sheet(data);
+        
+        // 컬럼 너비 설정
+        ws['!cols'] = [{wch: 12}, {wch: 10}, {wch: 20}, {wch: 20}, {wch: 20}];
+
+        XLSX.utils.book_append_sheet(wb, ws, "시간표");
+        XLSX.writeFile(wb, `아이들_시간표_${new Date().toISOString().slice(0,10)}.xlsx`);
+    }
+
+    // =========================================
+    // 4. 팝업창 관련 (엄마가 할 일 추가)
+    // =========================================
+    async function saveNewMaster() {
+        const title = document.getElementById('newTodoTitle').value;
+        const color = document.getElementById('selectedColor').value;
+        if (!title) return alert("이름을 입력하세요");
+
+        await fetch(`${API_BASE}/masters`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ title, color })
+        });
+        
+        closeModal();
+        loadMasters();
+        document.getElementById('newTodoTitle').value = '';
+    }
+
+    function openModal() { document.getElementById('todoModal').style.display = 'flex'; }
+    function closeModal() { document.getElementById('todoModal').style.display = 'none'; }
+    function selectColor(el) {
+        document.querySelectorAll('.color-circle').forEach(c => c.classList.remove('selected'));
+        el.classList.add('selected');
+        document.getElementById('selectedColor').value = el.style.backgroundColor; 
+    }
+</script>
+</body>
+</html>         // 하람, 움찬, 태랑 순서대로 할 일 텍스트 추출
+                slots.forEach(slot => {
+                    const items = Array.from(slot.querySelectorAll('.todo-item'))
+                                       .map(item => item.innerText.replace('❌', '').trim()) // 삭제 버튼 텍스트 제거
+                                       .join(', ');
+                    rowData.push(items);
+                });
+                data.push(rowData);
+            });
+        });
+
+        const ws = XLSX.utils.aoa_to_sheet(data);
+        
+        // 컬럼 너비 설정
+        ws['!cols'] = [{wch: 12}, {wch: 10}, {wch: 20}, {wch: 20}, {wch: 20}];
+
+        XLSX.utils.book_append_sheet(wb, ws, "시간표");
+        XLSX.writeFile(wb, `아이들_시간표_${new Date().toISOString().slice(0,10)}.xlsx`);
     }
 
     // =========================================

@@ -63,4 +63,5 @@ model TodoPlan {
   childName    String     // 하람, 움찬, 태랑
   planDate     String     // "2024-05-20"
   timeSlot     String     // "08:30"
+  isCompleted  Boolean    @default(false) // 엄마가 확인한 완료(별) 표시
 }
