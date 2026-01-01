@@ -45,7 +45,12 @@
         .child-header { text-align: center; font-size: 1.2rem; padding: 10px 0; background: #3498db; color: white; border-radius: 10px 10px 0 0; }
         
         .nav-btns { margin-bottom: 10px; display: flex; justify-content: space-between; }
-        button { padding: 10px 20px; border-radius: 30px; border: none; background: #e67e22; color: white; cursor: pointer; font-size: 1rem; }
+        /* [수정] 네비게이션 버튼 원형으로 변경 */
+        .nav-btns button { 
+            width: 40px; height: 40px; border-radius: 50%; padding: 0; border: none; 
+            background: #e67e22; color: white; cursor: pointer; font-size: 1.2rem; font-weight: bold;
+            display: flex; align-items: center; justify-content: center;
+        }
 
         /* 상단 헤더 */
         .header-section { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
@@ -71,6 +76,15 @@
 
         @media (max-width: 768px) {
             .day-column { min-width: 100%; }
+            /* [추가] 모바일에서 버튼 크기 축소 및 정렬 */
+            .btn-add-todo, .btn-excel, .btn-star { padding: 8px 10px; font-size: 0.8rem; margin-right: 2px; }
+            .header-section h2 { font-size: 1.2rem; }
+            
+            /* [추가] 모바일에서 보물창고 영역 확장 (3줄 정도) */
+            .todo-storage { 
+                flex-wrap: wrap; height: 180px; overflow-y: auto; align-content: flex-start; 
+            }
+            .todo-item { margin: 2px; font-size: 0.9rem; padding: 8px 12px; }
         }
     </style>
 </head>
@@ -116,9 +130,9 @@
     </div>
 
     <div class="nav-btns">
-        <button onclick="moveDate(-1)">⬅️ 이전</button>
+        <button onclick="moveDate(-1)">&lt;</button>
         <h2 id="dateRange">날짜 로딩 중...</h2>
-        <button onclick="moveDate(1)">다음 ➡️</button>
+        <button onclick="moveDate(1)">&gt;</button>
     </div>
 
     <div class="days-container" id="scheduleBoard">
@@ -276,6 +290,8 @@
             new Sortable(slot, {
                 group: 'shared',
                 animation: 150,
+                delay: 100, // [추가] 모바일 터치 시 드래그 지연 (클릭 허용)
+                delayOnTouchOnly: true,
                 onAdd: async function (evt) {
                     const item = evt.item;          // 드롭된 아이템
                     const masterId = item.dataset.id; // 엄마의 할일 ID
@@ -349,7 +365,9 @@
             // 엄마 창고 Sortable (복제 모드)
             new Sortable(container, {
                 group: { name: 'shared', pull: 'clone', put: false },
-                sort: false, animation: 150
+                sort: false, animation: 150,
+                delay: 100, // [추가] 모바일 터치 시 드래그 지연
+                delayOnTouchOnly: true
             });
         } catch(err) { console.error(err); }
     }
