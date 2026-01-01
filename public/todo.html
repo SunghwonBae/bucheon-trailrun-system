@@ -228,10 +228,9 @@
                         <tbody>
             `;
 
-            // 08:00 ~ 22:00 시간 슬롯 생성
-            for(let h=8; h<=22; h++) {
+            // 08:00 ~ 21:30 시간 슬롯 생성
+            for(let h=8; h<=21; h++) {
                 ['00', '30'].forEach(m => {
-                    if(h===22 && m==='30') return;
                     const isHour = (m === '00');
                     const time = `${String(h).padStart(2,'0')}:${m}`;
                     
