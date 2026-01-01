@@ -37,21 +37,67 @@
         
         .nav-btns { margin-bottom: 10px; display: flex; justify-content: space-between; }
         button { padding: 10px 20px; border-radius: 30px; border: none; background: #e67e22; color: white; cursor: pointer; font-size: 1rem; }
+
+        /* 상단 헤더 */
+        .header-section { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+        .btn-add-todo { background: #6c5ce7; color: white; border: none; padding: 10px 20px; border-radius: 20px; cursor: pointer; font-weight: bold; box-shadow: 0 4px 0 #4834d4; transition: 0.2s; }
+        .btn-add-todo:active { transform: translateY(4px); box-shadow: none; }
+
+        /* 모달창(팝업) 스타일 */
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: flex; justify-content: center; align-items: center; z-index: 1000; }
+        .modal-content { background: white; padding: 25px; border-radius: 20px; width: 320px; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.2); border: 4px solid #a29bfe; }
+        .input-group { margin: 15px 0; text-align: left; }
+        .input-group input[type="text"] { width: 90%; padding: 10px; border: 2px solid #dfe6e9; border-radius: 10px; font-size: 1rem; }
+
+        /* 색상 선택기 */
+        .color-options { display: flex; gap: 10px; margin-top: 5px; justify-content: center; }
+        .color-circle { width: 30px; height: 30px; border-radius: 50%; cursor: pointer; border: 3px solid transparent; transition: 0.2s; }
+        .color-circle:hover { transform: scale(1.2); }
+        .color-circle.selected { border-color: #2d3436; transform: scale(1.1); }
+        .modal-btns { display: flex; justify-content: space-around; margin-top: 20px; }
     </style>
 </head>
 <body>
 
+    <div class="header-section">
+        <h2>🎒 할 일 보물창고</h2>
+        <button onclick="openModal()" class="btn-add-todo">➕ 새 할일 만들기</button>
+    </div>
+
     <div class="todo-storage" id="masterTodos">
-        <div class="todo-item" style="background: #ff7675;" data-id="1">📚 독서</div>
-        <div class="todo-item" style="background: #74b9ff;" data-id="2">🇬🇧 영어</div>
-        <div class="todo-item" style="background: #55efc4;" data-id="3">🍎 간식</div>
-        <div class="todo-item" style="background: #fab1a0;" data-id="4">🎹 피아노</div>
+        <div style="color:#aaa; padding:10px;">로딩 중...</div>
+    </div>
+
+    <div id="todoModal" class="modal-overlay" style="display: none;">
+        <div class="modal-content">
+            <h3>✨ 새로운 퀘스트 만들기</h3>
+            <div class="input-group">
+                <label>이름:</label>
+                <input type="text" id="newTodoTitle" placeholder="예: 독서, 피아노, 줄넘기">
+            </div>
+            <div class="input-group">
+                <label>색상:</label>
+                <div class="color-options">
+                    <div class="color-circle selected" style="background:#ff7675" onclick="selectColor(this)"></div>
+                    <div class="color-circle" style="background:#74b9ff" onclick="selectColor(this)"></div>
+                    <div class="color-circle" style="background:#55efc4" onclick="selectColor(this)"></div>
+                    <div class="color-circle" style="background:#fab1a0" onclick="selectColor(this)"></div>
+                    <div class="color-circle" style="background:#a29bfe" onclick="selectColor(this)"></div>
+                    <div class="color-circle" style="background:#ffeaa7" onclick="selectColor(this)"></div>
+                </div>
+                <input type="hidden" id="selectedColor" value="#ff7675">
+            </div>
+            <div class="modal-btns">
+                <button onclick="closeModal()" style="background:#95a5a6">취소</button>
+                <button onclick="saveNewMaster()" style="background:#00b894">저장하기</button>
+            </div>
+        </div>
     </div>
 
     <div class="nav-btns">
-        <button onclick="prevDays()">⬅️ 이전 이틀</button>
-        <h2 id="dateRange">5월 20일 - 5월 21일</h2>
-        <button onclick="nextDays()">다음 이틀 ➡️</button>
+        <button onclick="changeDate(-2)">⬅️ 이전</button>
+        <h2 id="dateRange">날짜 로딩 중...</h2>
+        <button onclick="changeDate(2)">다음 ➡️</button>
     </div>
 
     <div class="days-container" id="scheduleBoard">
@@ -73,102 +119,180 @@
         </div>
 
 <script>
-    // [수정 1] API 경로 수정 (/api/todo/...)
-    const API_BASE = '/api/todo';
+    const API_BASE = '/api/todo'; // 라우터 경로
 
-    // 시간 그리드 초기화
-    function initGrid() {
-        const grid = document.getElementById('timeGrid');
-        // ... (기존 시간 행 생성 로직 유지) ... 
+    // =========================================
+    // 1. 초기화 및 날짜 관련 (일단 오늘 날짜로 세팅)
+    // =========================================
+    let currentDate = new Date(); // 현재 보고 있는 기준 날짜
+
+    // 페이지 로드 시 실행
+    document.addEventListener('DOMContentLoaded', () => {
+        updateDateDisplay();
+        loadMasters(); // 엄마의 할 일 목록 불러오기
+        initGrid();    // 시간표 틀 만들기 (껍데기)
+    });
+
+    function updateDateDisplay() {
+        // 날짜 포맷팅 (예: 5월 20일)
+        const options = { month: 'long', day: 'numeric' };
+        const startStr = currentDate.toLocaleDateString('ko-KR', options);
         
-        // 8시~22시 행 생성 코드 (기존과 동일)
-        for(let h=8; h<=22; h++) {
-            ['00', '30'].forEach(m => {
-                if(h === 22 && m === '30') return;
-                const isHour = m === '00';
-                const time = `${String(h).padStart(2, '0')}:${m}`;
-                const row = `<tr class="time-row ${isHour ? 'on-hour' : 'half-hour'}">
-                    <td class="time-label">${isHour ? time : ''}</td>
-                    <td class="child-slot" data-child="하람" data-time="${time}"><div class="slot-inner"></div></td>
-                    <td class="child-slot" data-child="움찬" data-time="${time}"><div class="slot-inner"></div></td>
-                    <td class="child-slot" data-child="태랑" data-time="${time}"><div class="slot-inner"></div></td>
-                </tr>`;
-                grid.insertAdjacentHTML('beforeend', row);
-            });
-        }
-        
-        // 초기 데이터 로드 호출
-        loadMasters();
-        loadPlans();
+        // 내일 날짜 계산
+        let nextDate = new Date(currentDate);
+        nextDate.setDate(currentDate.getDate() + 1);
+        const endStr = nextDate.toLocaleDateString('ko-KR', options);
+
+        document.getElementById('dateRange').innerText = `${startStr} - ${endStr}`;
     }
 
-    // [추가] 엄마가 만든 Todo 목록 불러오기
+    // 날짜 이동 (작동하도록 수정됨)
+    function changeDate(days) {
+        currentDate.setDate(currentDate.getDate() + days);
+        updateDateDisplay();
+        // TODO: 나중에 여기서 loadPlans()를 호출해 일정을 새로고침 해야 함
+    }
+
+
+    // =========================================
+    // 2. 엄마의 할 일(Master Todo) 기능
+    // =========================================
+
+    // 서버에서 목록 가져오기
     async function loadMasters() {
-        const res = await fetch(`${API_BASE}/masters`);
-        const masters = await res.json();
-        const container = document.getElementById('masterTodos');
-        
-        container.innerHTML = masters.map(m => 
-            `<div class="todo-item" style="background: ${m.color};" data-id="${m.id}">${m.title}</div>`
-        ).join('');
+        try {
+            const res = await fetch(`${API_BASE}/masters`);
+            const masters = await res.json();
+            
+            const container = document.getElementById('masterTodos');
+            container.innerHTML = ''; // 초기화
 
-        // Sortable 연결 (엄마 창고)
-        new Sortable(container, {
-            group: { name: 'shared', pull: 'clone', put: false },
-            sort: false, animation: 150
-        });
-    }
-
-    // [추가] 배치된 일정 불러오기
-    async function loadPlans() {
-        // 날짜는 예시로 고정 (실제로는 date input 값 사용)
-        const date = "2024-05-20"; 
-        const res = await fetch(`${API_BASE}/plans?startDate=${date}&endDate=${date}`);
-        const plans = await res.json();
-
-        plans.forEach(p => {
-            // 해당 위치(시간+아이) 찾기
-            const slot = document.querySelector(`.child-slot[data-child="${p.childName}"][data-time="${p.timeSlot}"] .slot-inner`);
-            if(slot) {
+            masters.forEach(m => {
                 const div = document.createElement('div');
                 div.className = 'todo-item';
-                div.style.background = p.todoMaster.color;
-                div.innerText = p.todoMaster.title;
-                div.dataset.planId = p.id;
-                slot.appendChild(div);
-            }
-        });
-
-        // 모든 시간 슬롯에 Sortable 기능 부여
-        document.querySelectorAll('.slot-inner').forEach(slot => {
-            new Sortable(slot, {
-                group: 'shared', animation: 150,
-                onAdd: async function (evt) {
-                    const item = evt.item;
-                    const masterId = item.dataset.id;
-                    // slot-inner의 부모 td에서 데이터 읽기
-                    const parentTd = evt.to.parentElement; 
-                    const child = parentTd.dataset.child;
-                    const time = parentTd.dataset.time;
-                    
-                    const saved = await savePlan(masterId, child, "2024-05-20", time);
-                    item.dataset.planId = saved.id;
-                }
+                div.style.background = m.color;
+                div.innerText = m.title;
+                div.dataset.id = m.id; // 드래그할 때 식별자
+                container.appendChild(div);
             });
-        });
+
+            // 드래그 앤 드롭 기능 재연결
+            new Sortable(container, {
+                group: { name: 'shared', pull: 'clone', put: false }, // 복제 모드
+                sort: false,
+                animation: 150
+            });
+
+        } catch (err) {
+            console.error("할 일 목록 로드 실패:", err);
+            document.getElementById('masterTodos').innerHTML = "서버 연결 실패 😢";
+        }
     }
 
-    // 일정 저장 API 호출
-    async function savePlan(masterId, child, date, time) {
-        const response = await fetch(`${API_BASE}/plans`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ todoMasterId: masterId, childName: child, planDate: date, timeSlot: time })
-        });
-        return await response.json();
+    // 새 할 일 저장하기 (서버로 전송)
+    async function saveNewMaster() {
+        const title = document.getElementById('newTodoTitle').value;
+        const color = document.getElementById('selectedColor').value;
+
+        if (!title) {
+            alert("할 일 이름을 입력해주세요!");
+            return;
+        }
+
+        try {
+            const res = await fetch(`${API_BASE}/masters`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ title, color })
+            });
+
+            if (res.ok) {
+                closeModal();
+                loadMasters(); // 목록 새로고침
+                document.getElementById('newTodoTitle').value = ''; // 입력창 비우기
+            } else {
+                alert("저장에 실패했습니다.");
+            }
+        } catch (err) {
+            console.error(err);
+        }
     }
 
-    initGrid();
+
+    // =========================================
+    // 3. UI 헬퍼 함수들 (모달, 그리드 등)
+    // =========================================
+
+    function openModal() { document.getElementById('todoModal').style.display = 'flex'; }
+    function closeModal() { document.getElementById('todoModal').style.display = 'none'; }
+    
+    // 색상 선택 시 테두리 효과
+    function selectColor(el) {
+        document.querySelectorAll('.color-circle').forEach(c => c.classList.remove('selected'));
+        el.classList.add('selected');
+        // rgb -> hex 변환 또는 배경색 그대로 값으로 사용
+        // 여기선 편의상 element의 style.background 값을 가져갑니다.
+        // 하지만 background값이 rgb(...)로 잡힐 수 있으므로, 
+        // 간단하게 미리 지정된 hex값을 data속성으로 두는게 좋지만, 
+        // 지금은 직관적인 rgb값도 DB 저장에 문제 없으므로 그대로 둡니다.
+        document.getElementById('selectedColor').value = el.style.backgroundColor; 
+    }
+
+    // 시간표 그리드 그리기 (기존 코드 유지하되, 약간 다듬음)
+    function initGrid() {
+        const gridContainer = document.getElementById('scheduleBoard');
+        gridContainer.innerHTML = ''; // 초기화
+
+        // 오늘, 내일 2일치 생성
+        [0, 1].forEach(dayOffset => {
+            let d = new Date(currentDate);
+            d.setDate(d.getDate() + dayOffset);
+            const dateStr = d.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric' });
+
+            // HTML 문자열 생성
+            let tableHTML = `
+                <div class="day-column">
+                    <h3 align="center">${dateStr}</h3>
+                    <table class="schedule-table">
+                        <thead>
+                            <tr>
+                                <th></th>
+                                <th class="child-header" style="background:#ff9f43">하람</th>
+                                <th class="child-header" style="background:#54a0ff">움찬</th>
+                                <th class="child-header" style="background:#5f27cd">태랑</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+            `;
+
+            // 08:00 ~ 22:00 루프
+            for(let h=8; h<=22; h++) {
+                ['00', '30'].forEach(m => {
+                    if(h===22 && m==='30') return;
+                    const isHour = (m === '00');
+                    const timeLabel = `${String(h).padStart(2,'0')}:${m}`;
+                    
+                    tableHTML += `
+                        <tr class="time-row ${isHour ? 'on-hour' : 'half-hour'}">
+                            <td class="time-label">${isHour ? timeLabel : ''}</td>
+                            <td class="child-slot" data-child="하람" data-time="${timeLabel}">
+                                <div class="slot-inner"></div>
+                            </td>
+                            <td class="child-slot" data-child="움찬" data-time="${timeLabel}">
+                                <div class="slot-inner"></div>
+                            </td>
+                            <td class="child-slot" data-child="태랑" data-time="${timeLabel}">
+                                <div class="slot-inner"></div>
+                            </td>
+                        </tr>
+                    `;
+                });
+            }
+
+            tableHTML += `</tbody></table></div>`;
+            gridContainer.insertAdjacentHTML('beforeend', tableHTML);
+        });
+    }
 </script>
 </body>
 </html>
