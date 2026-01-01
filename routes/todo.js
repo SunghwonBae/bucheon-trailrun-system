@@ -74,4 +74,18 @@ router.patch('/plans/:id/complete', async (req, res) => {
     res.json(plan);
 });
 
+// [추가] 일정 시간/날짜 변경 (드래그 이동 시)
+router.patch('/plans/:id', async (req, res) => {
+    const { planDate, timeSlot } = req.body;
+    try {
+        const plan = await prisma.todoPlan.update({
+            where: { id: Number(req.params.id) },
+            data: { planDate, timeSlot }
+        });
+        res.json(plan);
+    } catch (err) {
+        res.status(500).json({ error: "Update failed" });
+    }
+});
+
 module.exports = router;
