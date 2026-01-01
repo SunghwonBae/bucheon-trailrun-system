@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>아이들 시간 탐험대</title>
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+    <style>
+        :root { --bg-color: #f0f9ff; --border-bold: 2px solid #3498db; --border-dot: 1px dashed #bdc3c7; }
+        body { font-family: 'Jua', sans-serif; background: var(--bg-color); margin: 0; padding: 20px; }
+        
+        /* 엄마의 Todo 창고 */
+        .todo-storage { 
+            background: white; padding: 20px; border-radius: 20px; box-shadow: 0 10px 0 #ddd;
+            display: flex; gap: 10px; margin-bottom: 30px; border: 3px solid #3498db;
+        }
+        .todo-item { 
+            padding: 10px 20px; border-radius: 15px; cursor: grab; font-weight: bold;
+            box-shadow: 0 4px 0 rgba(0,0,0,0.1); transition: transform 0.2s;
+        }
+        .todo-item:active { cursor: grabbing; transform: translateY(4px); }
+
+        /* 이틀치 컨테이너 */
+        .days-container { display: flex; gap: 20px; overflow-x: auto; }
+        .day-column { flex: 1; min-width: 400px; background: white; border-radius: 20px; padding: 15px; }
+        
+        /* 시간표 테이블 */
+        .schedule-table { width: 100%; border-collapse: collapse; }
+        .time-row { height: 50px; }
+        .time-row.on-hour { border-top: var(--border-bold); } /* 정시 실선 */
+        .time-row.half-hour { border-top: var(--border-dot); } /* 30분 점선 */
+        
+        .time-label { width: 60px; text-align: center; font-size: 0.9rem; color: #7f8c8d; }
+        .child-slot { width: 30%; border-left: 1px solid #eee; position: relative; }
+        .slot-inner { min-height: 40px; display: flex; flex-wrap: wrap; gap: 4px; padding: 5px; }
+        
+        .child-header { text-align: center; font-size: 1.2rem; padding: 10px 0; background: #3498db; color: white; border-radius: 10px 10px 0 0; }
+        
+        .nav-btns { margin-bottom: 10px; display: flex; justify-content: space-between; }
+        button { padding: 10px 20px; border-radius: 30px; border: none; background: #e67e22; color: white; cursor: pointer; font-size: 1rem; }
+    </style>
+</head>
+<body>
+
+    <div class="todo-storage" id="masterTodos">
+        <div class="todo-item" style="background: #ff7675;" data-id="1">📚 독서</div>
+        <div class="todo-item" style="background: #74b9ff;" data-id="2">🇬🇧 영어</div>
+        <div class="todo-item" style="background: #55efc4;" data-id="3">🍎 간식</div>
+        <div class="todo-item" style="background: #fab1a0;" data-id="4">🎹 피아노</div>
+    </div>
+
+    <div class="nav-btns">
+        <button onclick="prevDays()">⬅️ 이전 이틀</button>
+        <h2 id="dateRange">5월 20일 - 5월 21일</h2>
+        <button onclick="nextDays()">다음 이틀 ➡️</button>
+    </div>
+
+    <div class="days-container" id="scheduleBoard">
+        <div class="day-column">
+            <h3 align="center">오늘 (5월 20일)</h3>
+            <table class="schedule-table">
+                <thead>
+                    <tr>
+                        <th></th>
+                        <th class="child-header" style="background:#ff9f43">하람</th>
+                        <th class="child-header" style="background:#54a0ff">움찬</th>
+                        <th class="child-header" style="background:#5f27cd">태랑</th>
+                    </tr>
+                </thead>
+                <tbody id="timeGrid">
+                    </tbody>
+            </table>
+        </div>
+        </div>
+
+<script>
+    // [수정 1] API 경로 수정 (/api/todo/...)
+    const API_BASE = '/api/todo';
+
+    // 시간 그리드 초기화
+    function initGrid() {
+        const grid = document.getElementById('timeGrid');
+        // ... (기존 시간 행 생성 로직 유지) ... 
+        
+        // 8시~22시 행 생성 코드 (기존과 동일)
+        for(let h=8; h<=22; h++) {
+            ['00', '30'].forEach(m => {
+                if(h === 22 && m === '30') return;
+                const isHour = m === '00';
+                const time = `${String(h).padStart(2, '0')}:${m}`;
+                const row = `<tr class="time-row ${isHour ? 'on-hour' : 'half-hour'}">
+                    <td class="time-label">${isHour ? time : ''}</td>
+                    <td class="child-slot" data-child="하람" data-time="${time}"><div class="slot-inner"></div></td>
+                    <td class="child-slot" data-child="움찬" data-time="${time}"><div class="slot-inner"></div></td>
+                    <td class="child-slot" data-child="태랑" data-time="${time}"><div class="slot-inner"></div></td>
+                </tr>`;
+                grid.insertAdjacentHTML('beforeend', row);
+            });
+        }
+        
+        // 초기 데이터 로드 호출
+        loadMasters();
+        loadPlans();
+    }
+
+    // [추가] 엄마가 만든 Todo 목록 불러오기
+    async function loadMasters() {
+        const res = await fetch(`${API_BASE}/masters`);
+        const masters = await res.json();
+        const container = document.getElementById('masterTodos');
+        
+        container.innerHTML = masters.map(m => 
+            `<div class="todo-item" style="background: ${m.color};" data-id="${m.id}">${m.title}</div>`
+        ).join('');
+
+        // Sortable 연결 (엄마 창고)
+        new Sortable(container, {
+            group: { name: 'shared', pull: 'clone', put: false },
+            sort: false, animation: 150
+        });
+    }
+
+    // [추가] 배치된 일정 불러오기
+    async function loadPlans() {
+        // 날짜는 예시로 고정 (실제로는 date input 값 사용)
+        const date = "2024-05-20"; 
+        const res = await fetch(`${API_BASE}/plans?startDate=${date}&endDate=${date}`);
+        const plans = await res.json();
+
+        plans.forEach(p => {
+            // 해당 위치(시간+아이) 찾기
+            const slot = document.querySelector(`.child-slot[data-child="${p.childName}"][data-time="${p.timeSlot}"] .slot-inner`);
+            if(slot) {
+                const div = document.createElement('div');
+                div.className = 'todo-item';
+                div.style.background = p.todoMaster.color;
+                div.innerText = p.todoMaster.title;
+                div.dataset.planId = p.id;
+                slot.appendChild(div);
+            }
+        });
+
+        // 모든 시간 슬롯에 Sortable 기능 부여
+        document.querySelectorAll('.slot-inner').forEach(slot => {
+            new Sortable(slot, {
+                group: 'shared', animation: 150,
+                onAdd: async function (evt) {
+                    const item = evt.item;
+                    const masterId = item.dataset.id;
+                    // slot-inner의 부모 td에서 데이터 읽기
+                    const parentTd = evt.to.parentElement; 
+                    const child = parentTd.dataset.child;
+                    const time = parentTd.dataset.time;
+                    
+                    const saved = await savePlan(masterId, child, "2024-05-20", time);
+                    item.dataset.planId = saved.id;
+                }
+            });
+        });
+    }
+
+    // 일정 저장 API 호출
+    async function savePlan(masterId, child, date, time) {
+        const response = await fetch(`${API_BASE}/plans`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ todoMasterId: masterId, childName: child, planDate: date, timeSlot: time })
+        });
+        return await response.json();
+    }
+
+    initGrid();
+</script>
+</body>
+</html>

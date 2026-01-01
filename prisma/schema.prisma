@@ -45,3 +45,21 @@ model RaceSetting {
   finishLineLat Float   @default(37.503)
   finishLineLng Float   @default(126.795)
 }
+
+// 엄마가 미리 정의해두는 할 일 목록
+model TodoMaster {
+  id        Int      @id @default(autoincrement())
+  title     String
+  color     String   @default("#FFD700")
+  plans     TodoPlan[]
+}
+
+// 아이들이 시간표에 배치한 데이터
+model TodoPlan {
+  id           Int        @id @default(autoincrement())
+  todoMasterId Int
+  todoMaster   TodoMaster @relation(fields: [todoMasterId], references: [id])
+  childName    String     // 하람, 움찬, 태랑
+  planDate     String     // "2024-05-20"
+  timeSlot     String     // "08:30"
+}

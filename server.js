@@ -9,6 +9,15 @@ const server = http.createServer(app);
 const io = new Server(server);
 const prisma = new PrismaClient();
 
+
+app.use(express.json());
+
+// 1. 라우터 파일 불러오기
+const todoRouter = require('./routes/todo');
+
+// 2. API 경로 연결 (/api/todo 로 시작하도록 설정)
+app.use('/api/todo', todoRouter);
+
 // [추가] 올해 데이터 필터링 조건
 const currentYear = new Date().getFullYear();
 const startOfYear = new Date(currentYear, 0, 1);
@@ -55,7 +64,6 @@ function getDistance(lat1, lon1, lat2, lon2) {
 }
 
 
-
 // [함수] 모든 대회 데이터(입상자, 미골인자, 전체 골인자) 가져오기
 async function getRaceData() {
     // 1. 부문별 입상자 (Top 5)
@@ -86,6 +94,92 @@ async function getRaceData() {
 
     return { maleSenior, maleJunior, female, notFinished, allFinished };
 }
+
+// [API] 모든 선수 목록 가져오기
+app.get('/api/runners', async (req, res) => {
+    const runners = await prisma.trailRunner.findMany({ 
+        where: { createdAt: yearCondition },
+        orderBy: { bibNumber: 'asc' } 
+    });
+    res.json(runners);
+});
+
+// [API] 선수 정보 수정 (인라인)
+app.put('/api/runners/:id', async (req, res) => {
+    const { id } = req.params;
+    const { paymentStatus, ...otherData } = req.body;
+    
+    const runner = await prisma.trailRunner.update({
+        where: { id: Number(id) },
+        data: { 
+            ...otherData,
+            paymentStatus: paymentStatus // Y, N, F 수정 지원
+        }
+    });
+    res.json({ message: "수정되었습니다.", runner });
+});
+
+// [API] 선수 삭제
+app.delete('/api/runners/:id', async (req, res) => {
+    await prisma.trailRunner.delete({ where: { id: Number(req.params.id) } });
+    res.json({ message: "삭제되었습니다." });
+});
+
+// [API] 통합 기록 초기화 (출발, 도착, 자동도착 삭제)
+app.post('/api/runners/reset-records', async (req, res) => {
+    await prisma.trailRunner.updateMany({
+        where: { createdAt: yearCondition },
+        data: { startTime: null, finishTime: null, autoFinishTime: null, printCount: 0 }
+    });
+    res.json({ message: "모든 기록이 초기화되었습니다." });
+});
+
+// [API] 기록증 인쇄 카운트 증가
+app.post('/api/runners/:id/print', async (req, res) => {
+    const { id } = req.params;
+    const runner = await prisma.trailRunner.update({
+        where: { id: Number(id) },
+        data: { printCount: { increment: 1 } }
+    });
+    res.json({ message: "인쇄 카운트가 증가되었습니다.", printCount: runner.printCount });
+});
+
+// [API] 엑셀 데이터를 통한 선수 대량 등록 (Bulk Upsert)
+app.post('/api/runners/bulk', async (req, res) => {
+    const runners = req.body; // 엑셀에서 추출된 선수 배열
+    
+    try {
+        // 비즈니스 로직: 기존 배번이 있으면 업데이트, 없으면 생성
+        const promises = runners.map(runner => {
+            return prisma.trailRunner.upsert({
+                where: { bibNumber: String(runner.bibNumber) },
+                update: {
+                    name: runner.name,
+                    gender: runner.gender,
+                    birthYear: Number(runner.birthYear),
+                    affiliation: runner.affiliation,
+                    phone: String(runner.phone || ''),
+                    ...(runner.paymentStatus && { paymentStatus: runner.paymentStatus })
+                },
+                create: {
+                    bibNumber: String(runner.bibNumber),
+                    name: runner.name,
+                    gender: runner.gender,
+                    birthYear: Number(runner.birthYear),
+                    affiliation: runner.affiliation,
+                    phone: String(runner.phone || ''),
+                    ...(runner.paymentStatus && { paymentStatus: runner.paymentStatus })
+                }
+            });
+        });
+
+        await Promise.all(promises);
+        res.json({ message: `${runners.length}명의 데이터가 처리되었습니다.` });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: "데이터 형식이 올바르지 않습니다." });
+    }
+});
 
 io.on('connection', async (socket) => {
     console.log('접속:', socket.id);
@@ -268,91 +362,6 @@ io.on('connection', async (socket) => {
         io.emit('update_ui', newData);
     });
 
-    // [API] 모든 선수 목록 가져오기
-    app.get('/api/runners', async (req, res) => {
-        const runners = await prisma.trailRunner.findMany({ 
-            where: { createdAt: yearCondition },
-            orderBy: { bibNumber: 'asc' } 
-        });
-        res.json(runners);
-    });
-
-    // [API] 선수 정보 수정 (인라인)
-    app.put('/api/runners/:id', async (req, res) => {
-        const { id } = req.params;
-        const { paymentStatus, ...otherData } = req.body;
-        
-        const runner = await prisma.trailRunner.update({
-            where: { id: Number(id) },
-            data: { 
-                ...otherData,
-                paymentStatus: paymentStatus // Y, N, F 수정 지원
-            }
-        });
-        res.json({ message: "수정되었습니다.", runner });
-    });
-
-    // [API] 선수 삭제
-    app.delete('/api/runners/:id', async (req, res) => {
-        await prisma.trailRunner.delete({ where: { id: Number(req.params.id) } });
-        res.json({ message: "삭제되었습니다." });
-    });
-
-    // [API] 통합 기록 초기화 (출발, 도착, 자동도착 삭제)
-    app.post('/api/runners/reset-records', async (req, res) => {
-        await prisma.trailRunner.updateMany({
-            where: { createdAt: yearCondition },
-            data: { startTime: null, finishTime: null, autoFinishTime: null, printCount: 0 }
-        });
-        res.json({ message: "모든 기록이 초기화되었습니다." });
-    });
-
-    // [API] 기록증 인쇄 카운트 증가
-    app.post('/api/runners/:id/print', async (req, res) => {
-        const { id } = req.params;
-        const runner = await prisma.trailRunner.update({
-            where: { id: Number(id) },
-            data: { printCount: { increment: 1 } }
-        });
-        res.json({ message: "인쇄 카운트가 증가되었습니다.", printCount: runner.printCount });
-    });
-
-    // [API] 엑셀 데이터를 통한 선수 대량 등록 (Bulk Upsert)
-    app.post('/api/runners/bulk', async (req, res) => {
-        const runners = req.body; // 엑셀에서 추출된 선수 배열
-        
-        try {
-            // 비즈니스 로직: 기존 배번이 있으면 업데이트, 없으면 생성
-            const promises = runners.map(runner => {
-                return prisma.trailRunner.upsert({
-                    where: { bibNumber: String(runner.bibNumber) },
-                    update: {
-                        name: runner.name,
-                        gender: runner.gender,
-                        birthYear: Number(runner.birthYear),
-                        affiliation: runner.affiliation,
-                        phone: String(runner.phone || ''),
-                        ...(runner.paymentStatus && { paymentStatus: runner.paymentStatus })
-                    },
-                    create: {
-                        bibNumber: String(runner.bibNumber),
-                        name: runner.name,
-                        gender: runner.gender,
-                        birthYear: Number(runner.birthYear),
-                        affiliation: runner.affiliation,
-                        phone: String(runner.phone || ''),
-                        ...(runner.paymentStatus && { paymentStatus: runner.paymentStatus })
-                    }
-                });
-            });
-
-            await Promise.all(promises);
-            res.json({ message: `${runners.length}명의 데이터가 처리되었습니다.` });
-        } catch (err) {
-            console.error(err);
-            res.status(500).json({ error: "데이터 형식이 올바르지 않습니다." });
-        }
-    });
 
     // [추가] 개별 기록증 출력을 위한 선수 정보 조회
     socket.on('get_runner_info', async (bib) => {
@@ -373,6 +382,7 @@ io.on('connection', async (socket) => {
         }
     });
 });
+
 
 const PORT = process.env.PORT || 3000;
 loadRaceSettings().then(() => {
