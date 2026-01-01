@@ -123,6 +123,22 @@ io.on('connection', async (socket) => {
             console.error("리셋 실패:", err);
         }
     });
+    
+    // [이벤트] 대회 종료 (미완주자 일괄 완주 처리)
+    socket.on('finish_race', async () => {
+        try {
+            const now = new Date();
+            // 출발은 했으나 아직 finishTime이 없는 선수들을 현재 시간으로 일괄 업데이트
+            await prisma.trailRunner.updateMany({
+                where: { startTime: { not: null }, finishTime: null, createdAt: yearCondition },
+                data: { finishTime: now }
+            });
+            const newData = await getRaceData();
+            io.emit('update_ui', newData);
+        } catch (err) {
+            console.error("대회 종료 처리 실패:", err);
+        }
+    });
 
     // [이벤트] 선수 도착 처리
     socket.on('runner_arrived', async (bibNumber) => {

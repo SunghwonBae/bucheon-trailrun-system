@@ -143,6 +143,7 @@
             if (password === "1234") {
                 if (timerInterval) clearInterval(timerInterval);
                 document.querySelector('.timer-box .info-text').innerText = "대회가 종료되었습니다.";
+                socket.emit('finish_race'); // 서버에 미완주자 일괄 처리 요청
             } else {
                 alert("비밀번호가 틀렸습니다.");
             }
