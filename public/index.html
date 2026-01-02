@@ -504,7 +504,7 @@
             }
         });
 
-        socket.on('error_msg', (msg) => showAlert(msg));
+        socket.on('error_msg', (msg) => showToast(msg));
         socket.on('runner_finished', (runner) => {
             showToast(`[완주:${runner.bibNumber}]`);
         });
