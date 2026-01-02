@@ -186,6 +186,7 @@
         document.getElementById('raceTitle').innerText = `🏃${currentYear} 부천트라이 산악마라톤대회-관리자`;
         // 구글 지도 관련 변수 및 함수
         let map, marker;
+        let runnerMarkers = {}; // [추가] 선수 마커 관리 객체
         let savedFinishLine = { lat: 37.503, lng: 126.795 }; // 기본값
 
         // [추가] 커스텀 UI 헬퍼 함수들
@@ -246,6 +247,51 @@
                 updateMarkerPosition(e.latLng.lat(), e.latLng.lng());
             });
         }
+
+        // [추가] 선수 위치 업데이트 처리
+        socket.on('update_runner_map', (data) => {
+            if (!map) return;
+
+            const pos = { lat: data.lat, lng: data.lng };
+            
+            if (runnerMarkers[data.bibNumber]) {
+                // 기존 마커 이동
+                runnerMarkers[data.bibNumber].setPosition(pos);
+            } else {
+                // 새 마커 생성 (파란색 아이콘 등 구별 가능하게 설정 가능)
+                const newMarker = new google.maps.Marker({
+                    position: pos,
+                    map: map,
+                    title: `${data.name} (${data.bibNumber})`,
+                    icon: {
+                        path: google.maps.SymbolPath.CIRCLE,
+                        scale: 5,
+                        fillColor: "#3498db",
+                        fillOpacity: 1,
+                        strokeWeight: 1
+                    }
+                });
+                runnerMarkers[data.bibNumber] = newMarker;
+            }
+        });
+
+        // [추가] SOS 알림 수신 시 지도 이동 및 경고
+        socket.on('sos_alert', (data) => {
+            showAlert(`🚨 [긴급] ${data.name}(${data.bibNumber}) 선수 구조 요청!`);
+            if (map) {
+                const pos = { lat: data.lat, lng: data.lng };
+                map.setCenter(pos);
+                map.setZoom(19);
+                
+                // SOS 마커 (빨간색)
+                new google.maps.Marker({
+                    position: pos,
+                    map: map,
+                    title: "SOS 요청 위치",
+                    animation: google.maps.Animation.BOUNCE
+                });
+            }
+        });
 
         function updateMarkerPosition(lat, lng) {
             showConfirm("이 위치를 골인 지점으로 설정하시겠습니까?", () => {

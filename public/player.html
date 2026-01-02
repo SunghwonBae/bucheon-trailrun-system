@@ -59,6 +59,14 @@
         .btn-start:active { transform: scale(0.98); }
         .btn-start:disabled { background: #b2bec3; cursor: not-allowed; box-shadow: none; }
 
+        /* [추가] SOS 버튼 스타일 */
+        .btn-sos {
+            background: #c0392b; color: white; padding: 15px; width: 100%; border: none;
+            border-radius: 12px; font-size: 1.2rem; font-weight: bold; cursor: pointer;
+            margin-top: 15px; box-shadow: 0 4px 15px rgba(192, 57, 43, 0.4); animation: pulse-red 2s infinite;
+        }
+        @keyframes pulse-red { 0% { box-shadow: 0 0 0 0 rgba(192, 57, 43, 0.7); } 70% { box-shadow: 0 0 0 10px rgba(192, 57, 43, 0); } 100% { box-shadow: 0 0 0 0 rgba(192, 57, 43, 0); } }
+
         #status { margin-top: 20px; font-size: 1rem; color: #636e72; min-height: 24px; }
         .tracking-on { color: #27ae60; font-weight: bold; animation: blink 1.5s infinite; }
         @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
@@ -151,6 +159,9 @@
             
             <button class="btn-start" id="startBtn" onclick="startTracking()">📡 위치 추적 시작</button>
             
+            <!-- [추가] SOS 버튼 (초기엔 숨김, 추적 시작 후 표시) -->
+            <button class="btn-sos" id="sosBtn" onclick="sendSOS()" style="display:none;">🆘 긴급 구조 요청 (SOS)</button>
+
             <div style="margin-top: 15px; font-size: 0.6rem; color: #95a5a6;">
                 * 버튼 클릭 시 위치 정보 수집에 동의하는 것으로 간주합니다.
             </div>
@@ -190,6 +201,7 @@
     <script>
         const socket = io();
         let watchId = null;
+        let lastPos = { lat: null, lng: null }; // [추가] 마지막 위치 저장
         let raceStartTime = null;
         let raceFinishTime = null;
         let timerInterval = null;
@@ -237,6 +249,7 @@
                 watchId = navigator.geolocation.watchPosition((pos) => {
                     const lat = pos.coords.latitude;
                     const lng = pos.coords.longitude;
+                    lastPos = { lat, lng }; // 위치 갱신
                     
                     document.getElementById('status').innerHTML = 
                         `<div class="tracking-on">📍 위치 추적 가동 중</div>
@@ -253,6 +266,7 @@
                 
                 document.getElementById('startBtn').disabled = true;
                 document.getElementById('startBtn').innerText = "추적 중 (공식 기록 대기)";
+                document.getElementById('sosBtn').style.display = 'block'; // [추가] SOS 버튼 표시
             } else {
                 showAlert("이 브라우저는 위치 추적을 지원하지 않습니다.");
             }
@@ -263,6 +277,19 @@
                 location.href = "/"; 
             });
         });
+
+        // [추가] SOS 기능 구현
+        function sendSOS() {
+            const bib = document.getElementById('bibNumber').value;
+            if(!confirm("정말 긴급 구조 요청을 보내시겠습니까? 관리자에게 현재 위치가 전송됩니다.")) return;
+
+            if (lastPos.lat && lastPos.lng) {
+                socket.emit('sos_signal', { bibNumber: bib, lat: lastPos.lat, lng: lastPos.lng });
+                showAlert("🚨 구조 요청이 전송되었습니다. 현재 위치에서 대기해주세요.");
+            } else {
+                showAlert("위치 정보를 가져오는 중입니다. 잠시 후 다시 시도해주세요.");
+            }
+        }
 
         socket.on('distance_update', (data) => {
             const distBox = document.getElementById('distanceDisplay');

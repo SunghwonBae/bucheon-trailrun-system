@@ -384,6 +384,16 @@ io.on('connection', async (socket) => {
             const diffMinutes = (new Date() - new Date(runner.startTime)) / (1000 * 60);
 
             socket.emit('distance_update', { distance: Math.round(distance) });
+            
+            // [추가] 관리자에게 실시간 위치 브로드캐스트 (이름, 배번, 좌표)
+            // 일반 사용자에게는 보내지 않고 admin room이나 식별된 소켓에만 보내는 것이 좋으나, 
+            // 여기서는 편의상 broadcast 사용 (실제 운영 시 보안 고려 필요)
+            socket.broadcast.emit('update_runner_map', { 
+                bibNumber: runner.bibNumber, 
+                name: runner.name, 
+                lat: lat, 
+                lng: lng 
+            });
 
             // [추가] 자동골인 임박 알림 (100m 이내, 30분 경과, 미완주자)
             if (diffMinutes >= 30 && distance <= 100 && !runner.finishTime) {
@@ -404,6 +414,18 @@ io.on('connection', async (socket) => {
                 io.emit('update_ui', newData);
                 socket.emit('auto_goal_success', { name: runner.name });
             }
+        }
+    });
+
+    // [추가] 선수 SOS 신호 처리
+    socket.on('sos_signal', async (data) => {
+        const { bibNumber, lat, lng } = data;
+        const runner = await prisma.trailRunner.findFirst({ where: { bibNumber: String(bibNumber), createdAt: yearCondition } });
+        
+        if (runner) {
+            console.log(`[SOS] ${runner.name}(${bibNumber}) 선수 긴급 호출!`);
+            // 모든 클라이언트(관리자, 전광판)에 알림 전송
+            io.emit('sos_alert', { bibNumber, name: runner.name, lat, lng });
         }
     });
 
