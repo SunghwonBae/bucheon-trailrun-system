@@ -194,6 +194,16 @@
         </div>
     </div>
 
+    <div id="confirmModal" class="custom-modal-overlay">
+        <div class="custom-modal-box">
+            <div id="confirmText" class="custom-modal-text">확인하시겠습니까?</div>
+            <div class="custom-modal-btns">
+                <button class="custom-modal-btn btn-confirm-no" onclick="closeConfirm(false)">취소</button>
+                <button class="custom-modal-btn btn-confirm-yes" onclick="closeConfirm(true)">확인</button>
+            </div>
+        </div>
+    </div>
+
     <div id="countdownOverlay" class="countdown-overlay">
         <div id="countdownNumber">5</div>
     </div>
@@ -231,6 +241,21 @@
             document.getElementById('alertModal').style.display = 'none';
             if(alertCallback) alertCallback();
             alertCallback = null;
+        }
+
+        let confirmCallback = null;
+        function showConfirm(msg, onYes, onNo) {
+            document.getElementById('confirmText').innerText = msg;
+            document.getElementById('confirmModal').style.display = 'flex';
+            confirmCallback = (result) => {
+                if(result && onYes) onYes();
+                else if(!result && onNo) onNo();
+            };
+        }
+        function closeConfirm(result) {
+            document.getElementById('confirmModal').style.display = 'none';
+            if(confirmCallback) confirmCallback(result);
+            confirmCallback = null;
         }
 
         function startTracking() {
@@ -283,14 +308,15 @@
         // [추가] SOS 기능 구현
         function sendSOS() {
             const bib = document.getElementById('bibNumber').value;
-            if(!confirm("정말 긴급 구조 요청을 보내시겠습니까? 관리자에게 현재 위치가 전송됩니다.")) return;
-
-            if (lastPos.lat && lastPos.lng) {
-                socket.emit('sos_signal', { bibNumber: bib, lat: lastPos.lat, lng: lastPos.lng });
-                showAlert("🚨 구조 요청이 전송되었습니다. 현재 위치에서 대기해주세요.");
-            } else {
-                showAlert("위치 정보를 가져오는 중입니다. 잠시 후 다시 시도해주세요.");
-            }
+            
+            showConfirm("정말 긴급 구조 요청을 보내시겠습니까? 관리자에게 현재 위치가 전송됩니다.", () => {
+                if (lastPos.lat && lastPos.lng) {
+                    socket.emit('sos_signal', { bibNumber: bib, lat: lastPos.lat, lng: lastPos.lng });
+                    showAlert("🚨 구조 요청이 전송되었습니다. 현재 위치에서 대기해주세요.");
+                } else {
+                    showAlert("위치 정보를 가져오는 중입니다. 잠시 후 다시 시도해주세요.");
+                }
+            });
         }
 
         socket.on('distance_update', (data) => {
