@@ -304,7 +304,15 @@
 
         function renderTable(data) {
             const tbody = document.getElementById('runnerList');
+            
+            // [수정] 입력 중인 신규 행(new-runner-row)은 유지하기 위해 잠시 대피
+            const newRows = tbody.querySelectorAll('.new-runner-row');
+            const fragment = document.createDocumentFragment();
+            newRows.forEach(row => fragment.appendChild(row));
+
             tbody.innerHTML = '';
+            tbody.appendChild(fragment); // 대피시켰던 신규 행 복구
+
             data.forEach(r => {
                 const recordStr = formatTime(r.finishTime, r.startTime);
                 const row = `<tr>
@@ -488,6 +496,7 @@
         function addNewRow() {
             const tbody = document.getElementById('runnerList');
             const tr = document.createElement('tr');
+            tr.className = 'new-runner-row'; // [수정] 신규 행 식별 클래스 추가
             tr.style.background = "#e8f8f5"; // 신규 행 강조 색상
             tr.innerHTML = `
                 <td><input type="text" placeholder="배번" class="new-bib"></td>
