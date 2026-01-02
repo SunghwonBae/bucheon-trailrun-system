@@ -16,6 +16,8 @@
         .todo-storage { 
             background: white; padding: 20px; border-radius: 20px; box-shadow: 0 10px 0 #ddd;
             display: flex; gap: 10px; margin-bottom: 30px; border: 3px solid #3498db;
+            align-items: center; overflow-x: auto; /* PC 가로 스크롤 */
+            padding-bottom: 15px;
         }
         .todo-item:active { cursor: grabbing; transform: translateY(4px); }
         
@@ -130,6 +132,42 @@
             display: flex;
         }
 
+        /* [추가] 보물창고 아이템 높이 차등 적용 (시간 비례 3단계) */
+        .todo-storage .todo-item {
+            width: 110px; /* PC 기본 너비 */
+            flex-shrink: 0;
+            display: flex; align-items: center; justify-content: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            transition: height 0.2s;
+        }
+        /* 1단계: 30분~1시간 (duration 1, 2) */
+        .todo-storage .todo-item[data-duration="1"],
+        .todo-storage .todo-item[data-duration="2"] {
+            height: 45px;
+        }
+        /* 2단계: 1시간30분~2시간30분 (duration 3, 4, 5) */
+        .todo-storage .todo-item[data-duration="3"],
+        .todo-storage .todo-item[data-duration="4"],
+        .todo-storage .todo-item[data-duration="5"] {
+            height: 70px;
+        }
+        /* 3단계: 3시간 이상 (duration 6~) */
+        .todo-storage .todo-item[data-duration="6"],
+        .todo-storage .todo-item[data-duration="7"],
+        .todo-storage .todo-item[data-duration="8"],
+        .todo-storage .todo-item[data-duration="9"],
+        .todo-storage .todo-item[data-duration="10"],
+        .todo-storage .todo-item[data-duration="11"],
+        .todo-storage .todo-item[data-duration="12"],
+        .todo-storage .todo-item[data-duration="13"],
+        .todo-storage .todo-item[data-duration="14"],
+        .todo-storage .todo-item[data-duration="15"],
+        .todo-storage .todo-item[data-duration="16"],
+        .todo-storage .todo-item[data-duration="17"],
+        .todo-storage .todo-item[data-duration="18"] {
+            height: 95px;
+        }
+
         /* 모바일용 컨텍스트 메뉴 */
         .mobile-menu {
             position: fixed; background: white; border-radius: 15px;
@@ -151,12 +189,16 @@
             /* [추가] 모바일에서 보물창고 영역 확장 (3줄 정도) */
             .todo-storage { 
                 flex-wrap: wrap; height: 180px; overflow-y: auto; align-content: flex-start; 
+                align-items: flex-start; /* 모바일 상단 정렬 */
             }
             .todo-storage .todo-item { width: auto; }
             .todo-item { margin: 2px; font-size: 0.9rem; padding: 8px 12px; }
 
             /* [추가] 모바일에서는 삭제 아이콘 숨김 (드래그로 삭제) */
             .todo-item:hover .btn-delete-plan { display: none !important; }
+            
+            /* [추가] 모바일에서 날짜 헤더 숨김 (상단에 표시됨) */
+            .date-header { display: none; }
         }
 
         /* [추가] 휴지통 스타일 */
@@ -172,6 +214,12 @@
             opacity: 0; pointer-events: none; transition: opacity 0.3s, transform 0.2s;
         }
         .trash-drop-zone.active { opacity: 1; pointer-events: auto; }
+        
+        /* [추가] 휴지통 드래그 오버 효과 */
+        .trash-drop-zone.drag-over {
+            transform: translateX(-50%) scale(1.1);
+            background: #d63031; /* 더 진한 빨강 */
+        }
 
         /* [추가] 커스텀 알림/모달 스타일 */
         .toast-message {
@@ -234,6 +282,14 @@
                     <option value="8">4시간</option>
                     <option value="9">4시간 30분</option>
                     <option value="10">5시간</option>
+                    <option value="11">5시간 30분</option>
+                    <option value="12">6시간</option>
+                    <option value="13">6시간 30분</option>
+                    <option value="14">7시간</option>
+                    <option value="15">7시간 30분</option>
+                    <option value="16">8시간</option>
+                    <option value="17">8시간 30분</option>
+                    <option value="18">9시간</option>
                 </select>
             </div>
             <div class="input-group">
@@ -306,7 +362,7 @@
     <div id="promptModal" class="custom-modal-overlay">
         <div class="custom-modal-box">
             <div id="promptText" class="custom-modal-text">비밀번호 입력</div>
-            <input type="password" id="promptInput" style="width:100%; padding:10px; margin-bottom:15px; border:1px solid #ddd; border-radius:5px; text-align:center;">
+            <input type="password" id="promptInput" style="width:90%; padding:10px; margin-bottom:15px; border:1px solid #ddd; border-radius:5px; text-align:center;">
             <div class="custom-modal-btns">
                 <button class="custom-modal-btn btn-confirm-no" onclick="closePrompt(null)">취소</button>
                 <button class="custom-modal-btn btn-alert-ok" onclick="closePrompt(document.getElementById('promptInput').value)">확인</button>
@@ -442,7 +498,7 @@
 
             let html = `
                 <div class="day-column" data-date="${isoDate}">
-                    <h3 align="center">${dateStr}</h3>
+                    <h3 align="center" class="date-header">${dateStr}</h3>
                     <table class="schedule-table">
                         <thead>
                             <tr>
@@ -455,8 +511,8 @@
                         <tbody>
             `;
 
-            // 08:00 ~ 21:30 시간 슬롯 생성
-            for(let h=8; h<=21; h++) {
+            // 08:00 ~ 22:30 시간 슬롯 생성
+            for(let h=8; h<=22; h++) {
                 ['00', '30'].forEach(m => {
                     const isHour = (m === '00');
                     const time = `${String(h).padStart(2,'0')}:${m}`;
@@ -508,6 +564,8 @@
                 onStart: () => toggleTrash(true), // [추가] 드래그 시작 시 휴지통 표시
                 onEnd: () => toggleTrash(false),   // [추가] 드래그 종료 시 휴지통 숨김
                 onMove: function (evt) {
+                    highlightTrash(evt.to.id === 'trashCan'); // [추가] 휴지통 감지 시각 효과
+
                     // [추가] 선택된 아이가 있을 경우 다른 아이 슬롯 진입 차단
                     if (activeChild) {
                         // [안전장치] 휴지통은 무조건 허용
@@ -602,6 +660,9 @@
                 delayOnTouchOnly: true,
                 onStart: () => toggleTrash(true), // [추가]
                 onEnd: () => toggleTrash(false),   // [추가]
+                onMove: function (evt) {
+                    highlightTrash(evt.to.id === 'trashCan');
+                },
                 onAdd: async function (evt) {
                     const item = evt.item;
                     const planId = item.dataset.planId;
@@ -632,21 +693,24 @@
                 const planId = item.dataset.planId;
                 const masterId = item.dataset.id;
 
-                showConfirm("정말 삭제하시겠습니까?", async () => {
-                    if (planId) {
-                        // 일정 삭제
-                        await fetch(`${API_BASE}/plans/${planId}`, { method: 'DELETE' });
-                    } else if (masterId) {
-                        // 보물창고 아이템 삭제
-                        await fetch(`${API_BASE}/masters/${masterId}`, { method: 'DELETE' });
-                        loadMasters(); 
-                    }
-                    item.remove(); 
-                }, () => {
-                    // 취소 시 복구
-                    renderSchedule();
-                    loadMasters();
-                });
+                // [추가] 휴지통 효과음 재생
+                playTrashSound();
+
+                // showConfirm("정말 삭제하시겠습니까?", async () => {
+                //     if (planId) {
+                //         // 일정 삭제
+                //         await fetch(`${API_BASE}/plans/${planId}`, { method: 'DELETE' });
+                //     } else if (masterId) {
+                //         // 보물창고 아이템 삭제
+                //         await fetch(`${API_BASE}/masters/${masterId}`, { method: 'DELETE' });
+                //         loadMasters(); 
+                //     }
+                //     item.remove(); 
+                // }, () => {
+                //     // 취소 시 복구
+                //     renderSchedule();
+                //     loadMasters();
+                // });
                 if (planId) {
                     // 일정 삭제
                     await fetch(`${API_BASE}/plans/${planId}`, { method: 'DELETE' });
@@ -665,6 +729,18 @@
         const el = document.getElementById('trashCan');
         if(show) el.classList.add('active');
         else el.classList.remove('active');
+        if(show) {
+            el.classList.add('active');
+        } else {
+            el.classList.remove('active');
+            el.classList.remove('drag-over'); // 초기화
+        }
+    }
+
+    function highlightTrash(isOver) {
+        const el = document.getElementById('trashCan');
+        if (isOver) el.classList.add('drag-over');
+        else el.classList.remove('drag-over');
     }
 
         // 모바일 메뉴 제어 변수
@@ -1048,6 +1124,34 @@
         closeModal();
         loadMasters();
         document.getElementById('newTodoTitle').value = '';
+    }
+
+    // [추가] 휴지통 효과음 (Web Audio API)
+    function playTrashSound() {
+        try {
+            const AudioContext = window.AudioContext || window.webkitAudioContext;
+            if (!AudioContext) return;
+            
+            const ctx = new AudioContext();
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+
+            // '슈욱' 느낌 (주파수 하강)
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(600, ctx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(100, ctx.currentTime + 0.2);
+
+            gain.gain.setValueAtTime(0.2, ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.2);
+
+            osc.start();
+            osc.stop(ctx.currentTime + 0.2);
+        } catch (e) {
+            console.log(e);
+        }
     }
 
     function openModal() { document.getElementById('todoModal').style.display = 'flex'; }
