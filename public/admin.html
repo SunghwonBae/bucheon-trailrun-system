@@ -355,7 +355,7 @@
 
             data.forEach(r => {
                 const recordStr = formatTime(r.finishTime, r.startTime);
-                const row = `<tr>
+                const row = `<tr id="row-${r.id}">
                     <td><input type="text" value="${r.bibNumber}" onchange="updateField(${r.id}, 'bibNumber', this.value)"></td>
                     <td><input type="text" value="${r.name || ''}" onchange="updateField(${r.id}, 'name', this.value)"></td>
                     <td><input type="text" value="${r.gender || ''}" onchange="updateField(${r.id}, 'gender', this.value)"></td>
@@ -595,6 +595,26 @@
                 console.error(err);
                 showAlert("저장 실패: 배번 중복 등을 확인해주세요.");
             }
+        }
+
+        // [추가] 선수 삭제 함수
+        function deleteRunner(id) {
+            showConfirm("정말 삭제하시겠습니까?", async () => {
+                try {
+                    await fetch(`/api/runners/${id}`, { method: 'DELETE' });
+                    showToast("삭제되었습니다.");
+                    
+                    // [변경] 전체 리로드 대신 해당 행만 삭제
+                    const row = document.getElementById(`row-${id}`);
+                    if (row) row.remove();
+                    
+                    // 데이터 배열에서도 제거 (정렬 시 재등장 방지)
+                    runnersData = runnersData.filter(r => r.id !== id);
+                } catch (err) {
+                    console.error(err);
+                    showAlert("삭제 실패");
+                }
+            });
         }
 
         fetchRunners();
