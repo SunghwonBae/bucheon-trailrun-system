@@ -128,6 +128,12 @@ app.delete('/api/runners/:id', async (req, res) => {
 
 // [API] 통합 기록 초기화 (출발, 도착, 자동도착 삭제)
 app.post('/api/runners/reset-records', async (req, res) => {
+    // [변경] RaceSetting 초기화
+    await prisma.raceSetting.update({
+        where: { year: currentYear },
+        data: { startTime: null, finishTime: null }
+    });
+
     await prisma.trailRunner.updateMany({
         where: { createdAt: yearCondition },
         data: { startTime: null, finishTime: null, autoFinishTime: null, printCount: 0 }
@@ -262,7 +268,8 @@ io.on('connection', async (socket) => {
                 data: { 
                     startTime: null, 
                     finishTime: null,
-                    autoFinishTime: null 
+                    autoFinishTime: null, 
+                    printCount: 0 
                 }
             });
             // 모든 클라이언트에 리셋 상태 방송

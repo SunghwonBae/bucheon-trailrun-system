@@ -127,11 +127,11 @@
         
         <div style="margin-top: 15px;">
             <button id="playerBtn" onclick="location.href='/player.html'">📱 선수GPX동의</button>
-            <button id="startBtn" onclick="startRace()">🔫 대회 출발</button>
-            <button id="resetBtn" onclick="resetRace()">🔄 전체 초기화</button>
+            <button id="startBtn" onclick="startRace()" style="display: none;">🔫 대회 출발</button>
+            <button id="resetBtn" onclick="resetRace()" style="display: none;">🔄 전체 초기화</button>
             <button id="goAdminBtn" onclick="goToAdmin()">⚙️ 관리자 설정</button>
             <button id="logoutBtn" onclick="logoutAdmin()" style="display: none;">🔓 관리자 로그아웃</button>
-            <button id="finishBtn" onclick="finishRace()">🏁 대회 종료</button>
+            <button id="finishBtn" onclick="finishRace()" style="display: none;">🏁 대회 종료</button>
         </div>
     </div>
 
@@ -280,10 +280,16 @@
         const isAdmin = localStorage.getItem('admin_access') === 'granted';
         if (isAdmin) {
             document.getElementById('finishBibInput').style.display = 'block';
+            document.getElementById('startBtn').style.display = 'inline-block';
             document.getElementById('logoutBtn').style.display = 'inline-block';
+            document.getElementById('resetBtn').style.display = 'inline-block';
+            document.getElementById('finishBtn').style.display = 'inline-block';
         } else {
             document.getElementById('finishBibInput').style.display = 'none';
+            document.getElementById('startBtn').style.display = 'none';
             document.getElementById('logoutBtn').style.display = 'none';
+            document.getElementById('resetBtn').style.display = 'none';
+            document.getElementById('finishBtn').style.display = 'none';
         }
 
         // [추가] 커스텀 UI 헬퍼 함수들

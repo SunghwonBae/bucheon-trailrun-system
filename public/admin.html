@@ -99,6 +99,7 @@
     <h1 id="raceTitle">🏃 부천트라이 산악마라톤대회 관리자</h1>
 
     <div class="controls">
+        <button class="btn btn-home" onclick="location.href='/'">🏠 전광판으로</button>
         <button class="btn btn-add" onclick="addNewRow()">➕ 선수추가</button>
         <button class="btn btn-excel" onclick="downloadExcel()">📊 전체목록 액셀다운로드</button>
         <button class="btn btn-template" onclick="downloadTemplate()">📥 업로드템플릿다운</button>
@@ -108,9 +109,7 @@
             <input type="file" id="excelFile" accept=".xlsx, .xls" style="display: none;" onchange="uploadExcel(this)">
             <span id="fileName" style="font-size: 0.85rem; color: #666;">선택된 파일 없음</span>
         </div>
-
         <button class="btn btn-reset" onclick="resetAllRecords()">🔄 모든 기록 초기화</button>
-        <button class="btn btn-home" onclick="location.href='/'">🏠 전광판으로</button>
         <button class="btn btn-cert" onclick="location.href='/certificate.html'">🏆 상장 출력 화면</button>
 
         <div style="border-left: 2px solid #ccc; padding-left: 10px; display: flex; align-items: center; gap: 5px;">
