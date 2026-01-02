@@ -116,9 +116,20 @@
             50% { transform: scale(1.2); opacity: 0.8; }
             100% { transform: scale(1); opacity: 1; }
         }
+
+        /* [추가] 음성인식 배너 스타일 */
+        #voiceStatusBanner {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 50px;
+            background: #34495e; color: white; text-align: center; line-height: 50px;
+            font-weight: bold; z-index: 3000; cursor: pointer;
+        }
+        #voiceStatusBanner.listening {
+            background: #e74c3c;
+        }
     </style>
 </head>
 <body>
+    <div id="voiceStatusBanner">🔇 음성인식 꺼짐 (터치하여 켜기)</div>
     <h1 id="raceTitle">🏃부천트라이 산악마라톤대회</h1>
     <div class="timer-box">
         <div class="info-text">경과 시간</div>
