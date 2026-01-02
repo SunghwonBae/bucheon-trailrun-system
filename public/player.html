@@ -164,6 +164,7 @@
 
             <div style="margin-top: 15px; font-size: 0.6rem; color: #95a5a6;">
                 * 버튼 클릭 시 위치 정보 수집에 동의하는 것으로 간주합니다.
+                <span id="sosBtnNote" style="display:none;"><br>* SOS요청시 위치가 관리자 페이지에 전송됩니다.</span>
             </div>
             
             <div id="status">연결 대기 중...</div>
@@ -267,6 +268,7 @@
                 document.getElementById('startBtn').disabled = true;
                 document.getElementById('startBtn').innerText = "추적 중 (공식 기록 대기)";
                 document.getElementById('sosBtn').style.display = 'block'; // [추가] SOS 버튼 표시
+                document.getElementById('sosBtnNote').style.display = 'inline-block'; // [추가] SOS 버튼 표시
             } else {
                 showAlert("이 브라우저는 위치 추적을 지원하지 않습니다.");
             }
