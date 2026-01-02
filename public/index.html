@@ -174,18 +174,20 @@
 
         <div class="rank-card" style="margin-top: 20px; width: 100%;">
             <div class="rank-header" style="background: #34495e;">🏁 전체 완주자 기록 (최신순)</div>
-            <table>
-                <thead>
-                    <tr>
-                        <th> </th>
-                        <th>배번</th>
-                        <th>이름</th>
-                        <th>공식 기록 (심판)</th>
-                        <th>자동 기록 (GPX)</th>
-                    </tr>
-                </thead>
-                <tbody id="allFinishedList"></tbody>
-            </table>
+            <div style="max-height: 400px; overflow-y: auto;">
+                <table>
+                    <thead style="position: sticky; top: 0; background: #f8f9fa; z-index: 1;">
+                        <tr>
+                            <th> </th>
+                            <th>배번</th>
+                            <th>이름</th>
+                            <th>공식 기록 (심판)</th>
+                            <th>자동 기록 (GPX)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="allFinishedList"></tbody>
+                </table>
+            </div>
         </div>
     </div>
 
