@@ -425,7 +425,7 @@ io.on('connection', async (socket) => {
         if (runner) {
             console.log(`[SOS] ${runner.name}(${bibNumber}) 선수 긴급 호출!`);
             // 모든 클라이언트(관리자, 전광판)에 알림 전송
-            io.emit('sos_alert', { bibNumber, name: runner.name, lat, lng });
+            io.emit('sos_alert', { bibNumber, name: runner.name, phone: runner.phone, lat, lng });
         }
     });
 

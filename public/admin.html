@@ -262,13 +262,20 @@
                 const newMarker = new google.maps.Marker({
                     position: pos,
                     map: map,
-                    title: `${data.name} (${data.bibNumber})`,
+                    // [변경] 마우스 오버 없이 항상 텍스트 표시 (label 사용)
+                    label: {
+                        text: `${data.name} (${data.bibNumber})`,
+                        color: "#000000",
+                        fontSize: "11px",
+                        fontWeight: "bold"
+                    },
                     icon: {
                         path: google.maps.SymbolPath.CIRCLE,
                         scale: 5,
                         fillColor: "#3498db",
                         fillOpacity: 1,
-                        strokeWeight: 1
+                        strokeWeight: 1,
+                        labelOrigin: new google.maps.Point(0, -10) // 텍스트를 마커 위로 올림
                     }
                 });
                 runnerMarkers[data.bibNumber] = newMarker;
@@ -277,7 +284,7 @@
 
         // [추가] SOS 알림 수신 시 지도 이동 및 경고
         socket.on('sos_alert', (data) => {
-            showAlert(`🚨 [긴급] ${data.name}(${data.bibNumber}) 선수 구조 요청!`);
+            showAlert(`🚨${data.name}:${data.phone}(${data.bibNumber})구조요청`);
             if (map) {
                 const pos = { lat: data.lat, lng: data.lng };
                 map.setCenter(pos);
