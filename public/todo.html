@@ -168,6 +168,31 @@
             opacity: 0; pointer-events: none; transition: opacity 0.3s, transform 0.2s;
         }
         .trash-drop-zone.active { opacity: 1; pointer-events: auto; }
+
+        /* [추가] 커스텀 알림/모달 스타일 */
+        .toast-message {
+            position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
+            background: rgba(0,0,0,0.8); color: white; padding: 12px 24px; border-radius: 25px;
+            font-size: 1rem; z-index: 4000; opacity: 0; transition: opacity 0.3s; pointer-events: none;
+        }
+        .toast-message.show { opacity: 1; }
+
+        .custom-modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5); display: none; justify-content: center; align-items: center; z-index: 5000;
+        }
+        .custom-modal-box {
+            background: white; padding: 25px; border-radius: 15px; width: 300px;
+            text-align: center; box-shadow: 0 5px 20px rgba(0,0,0,0.3);
+        }
+        .custom-modal-text { margin-bottom: 20px; font-size: 1.1rem; word-break: keep-all; }
+        .custom-modal-btns { display: flex; gap: 10px; justify-content: center; }
+        .custom-modal-btn {
+            flex: 1; padding: 10px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold;
+        }
+        .btn-confirm-yes { background: #e74c3c; color: white; }
+        .btn-confirm-no { background: #95a5a6; color: white; }
+        .btn-alert-ok { background: #3498db; color: white; width: 100%; }
     </style>
 </head>
 <body>
@@ -261,6 +286,30 @@
 
     <div id="trashCan" class="trash-drop-zone">🗑️ 여기로 드래그</div>
 
+    <!-- 커스텀 알림/모달 요소 -->
+    <div id="toastMessage" class="toast-message">알림</div>
+
+    <div id="confirmModal" class="custom-modal-overlay">
+        <div class="custom-modal-box">
+            <div id="confirmText" class="custom-modal-text">확인하시겠습니까?</div>
+            <div class="custom-modal-btns">
+                <button class="custom-modal-btn btn-confirm-no" onclick="closeConfirm(false)">취소</button>
+                <button class="custom-modal-btn btn-confirm-yes" onclick="closeConfirm(true)">확인</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="promptModal" class="custom-modal-overlay">
+        <div class="custom-modal-box">
+            <div id="promptText" class="custom-modal-text">비밀번호 입력</div>
+            <input type="password" id="promptInput" style="width:100%; padding:10px; margin-bottom:15px; border:1px solid #ddd; border-radius:5px; text-align:center;">
+            <div class="custom-modal-btns">
+                <button class="custom-modal-btn btn-confirm-no" onclick="closePrompt(null)">취소</button>
+                <button class="custom-modal-btn btn-alert-ok" onclick="closePrompt(document.getElementById('promptInput').value)">확인</button>
+            </div>
+        </div>
+    </div>
+
 <script>
     const API_BASE = '/api/todo'; 
     // [수정] 저장된 날짜가 있으면 불러오고, 없으면 오늘 날짜 사용
@@ -270,6 +319,43 @@
     let daysToShow = 2; // 기본값 (PC)
     let isMomMode = false; // 엄마 로그인 상태
     let activeChild = null; // [추가] 아이 선택 상태 (실수 방지용)
+
+    // [추가] 커스텀 UI 헬퍼 함수들
+    let confirmCallback = null;
+    function showConfirm(msg, onYes, onNo) {
+        document.getElementById('confirmText').innerText = msg;
+        document.getElementById('confirmModal').style.display = 'flex';
+        confirmCallback = (result) => {
+            if(result && onYes) onYes();
+            else if(!result && onNo) onNo();
+        };
+    }
+    function closeConfirm(result) {
+        document.getElementById('confirmModal').style.display = 'none';
+        if(confirmCallback) confirmCallback(result);
+        confirmCallback = null;
+    }
+
+    let promptCallback = null;
+    function showPrompt(msg, onResult) {
+        document.getElementById('promptText').innerText = msg;
+        document.getElementById('promptInput').value = '';
+        document.getElementById('promptModal').style.display = 'flex';
+        document.getElementById('promptInput').focus();
+        promptCallback = onResult;
+    }
+    function closePrompt(val) {
+        document.getElementById('promptModal').style.display = 'none';
+        if(promptCallback) promptCallback(val);
+        promptCallback = null;
+    }
+
+    function showToast(msg) {
+        const el = document.getElementById('toastMessage');
+        el.innerText = msg;
+        el.classList.add('show');
+        setTimeout(() => el.classList.remove('show'), 2000);
+    }
 
     // 페이지 로드 시 실행
     document.addEventListener('DOMContentLoaded', () => {
@@ -459,7 +545,7 @@
                         const fromChild = fromParentTd.dataset.child;
 
                         if (fromChild !== child) {
-                            alert("다른 사람에게 옮길 수 없습니다.");
+                            showToast("다른 사람에게 옮길 수 없습니다.");
                             fromList.insertBefore(item, fromList.children[evt.oldIndex] || null);
                             return;
                         }
@@ -514,13 +600,13 @@
                     const planId = item.dataset.planId;
                     if (planId) {
                         // 슬롯에서 보물창고로 드래그 시 삭제 처리
-                        if (confirm("이 할 일을 삭제할까요?")) {
+                        showConfirm("이 할 일을 삭제할까요?", async () => {
                             await fetch(`${API_BASE}/plans/${planId}`, { method: 'DELETE' });
                             item.remove(); 
-                        } else {
+                        }, () => {
                             item.remove(); // 드롭된 아이템 제거
                             renderSchedule(); // 원래 위치 복구
-                        }
+                        });
                     } else {
                         item.remove();
                     }
@@ -539,7 +625,7 @@
                 const planId = item.dataset.planId;
                 const masterId = item.dataset.id;
 
-                if (confirm("정말 삭제하시겠습니까?")) {
+                showConfirm("정말 삭제하시겠습니까?", async () => {
                     if (planId) {
                         // 일정 삭제
                         await fetch(`${API_BASE}/plans/${planId}`, { method: 'DELETE' });
@@ -549,11 +635,11 @@
                         loadMasters(); 
                     }
                     item.remove(); 
-                } else {
+                }, () => {
                     // 취소 시 복구
                     renderSchedule();
                     loadMasters();
-                }
+                });
             }
         });
     }
@@ -694,11 +780,11 @@
     }
 
     async function handleDeletePlan(id) {
-        if(confirm("정말 삭제할까요?")) {
+        showConfirm("정말 삭제할까요?", async () => {
             await fetch(`${API_BASE}/plans/${id}`, { method: 'DELETE' });
             selectedPlanElement.remove();
             document.getElementById('mobileMenu').remove();
-        }
+        });
     }
 
 
@@ -719,7 +805,7 @@
             const data = await res.json();
             return data;
         } catch(err) {
-            alert("저장 실패!");
+            showToast("저장 실패!");
             return null;
         }
     }
@@ -742,19 +828,19 @@
 
     // [추가 기능] 일정 삭제 API (더블 클릭 시)
     async function deletePlan(planId, element) {
-        if(confirm('이 할 일을 삭제할까요?')) {
+        showConfirm('이 할 일을 삭제할까요?', async () => {
             await fetch(`${API_BASE}/plans/${planId}`, { method: 'DELETE' });
             element.remove();
-        }
+        });
     }
 
     // [추가] 마스터 할 일 삭제 (보물창고에서 제거, 과거 기록은 유지)
     async function deleteMaster(event, id) {
         event.stopPropagation(); // 드래그 방지
-        if(!confirm("보물창고에서 삭제하시겠습니까? (이미 배치된 일정은 유지됩니다)")) return;
-
-        await fetch(`${API_BASE}/masters/${id}`, { method: 'DELETE' });
-        loadMasters(); // 목록 갱신
+        showConfirm("보물창고에서 삭제하시겠습니까? (이미 배치된 일정은 유지됩니다)", async () => {
+            await fetch(`${API_BASE}/masters/${id}`, { method: 'DELETE' });
+            loadMasters(); // 목록 갱신
+        });
     }
 
     // [추가] 엄마 로그인/로그아웃 토글
@@ -762,16 +848,20 @@
         if (isMomMode) {
             localStorage.removeItem('mom_access');
             isMomMode = false;
-            alert("엄마 로그아웃 되었습니다.");
+            showToast("엄마 로그아웃 되었습니다.");
         } else {
-            const pw = prompt("엄마 비밀번호를 입력하세요:");
-            if (pw === '0627') {
-                localStorage.setItem('mom_access', 'granted');
-                isMomMode = true;
-                alert("엄마 로그인 성공! 할 일을 클릭하면 별을 줄 수 있어요.");
-            } else {
-                alert("비밀번호가 틀렸습니다.");
-            }
+            showPrompt("엄마 비밀번호를 입력하세요:", (pw) => {
+                if (!pw) return;
+                if (pw === '0627') {
+                    localStorage.setItem('mom_access', 'granted');
+                    isMomMode = true;
+                    showToast("엄마 로그인 성공!");
+                } else {
+                    showToast("비밀번호가 틀렸습니다.");
+                }
+                updateMomBtnUI();
+            });
+            return; // 비동기 처리되므로 UI 업데이트는 콜백 내부 또는 별도 처리
         }
         updateMomBtnUI();
     }
@@ -904,7 +994,7 @@
         const title = document.getElementById('newTodoTitle').value;
         const color = document.getElementById('selectedColor').value;
         const duration = document.getElementById('newTodoDuration').value;
-        if (!title) return alert("이름을 입력하세요");
+        if (!title) return showToast("이름을 입력하세요");
 
         await fetch(`${API_BASE}/masters`, {
             method: 'POST',
