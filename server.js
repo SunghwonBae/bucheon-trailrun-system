@@ -385,6 +385,15 @@ io.on('connection', async (socket) => {
 
             socket.emit('distance_update', { distance: Math.round(distance) });
 
+            // [추가] 자동골인 임박 알림 (100m 이내, 30분 경과, 미완주자)
+            if (diffMinutes >= 30 && distance <= 100 && !runner.finishTime) {
+                io.emit('runner_approaching', { 
+                    bibNumber: runner.bibNumber, 
+                    name: runner.name, 
+                    distance: Math.round(distance) 
+                });
+            }
+
             // 30분 경과 및 설정된 반경 이내 진입 시 (이미 기록이 있더라도 GPX 데이터는 남김)
             if (diffMinutes >= 30 && distance <= goalRadius && !runner.autoFinishTime) {
                 await prisma.trailRunner.update({

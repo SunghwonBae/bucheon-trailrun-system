@@ -164,6 +164,14 @@
     </div>
 
     <div class="container">
+        <div id="approachingSection" class="rank-card" style="display: none; width: 100%; border: 2px solid #f39c12; margin-bottom: 20px;">
+            <div class="rank-header" style="background: #f39c12;">🚀 자동골인 임박 (100m 이내)</div>
+            <table>
+                <thead><tr><th>배번</th><th>이름</th><th>남은거리</th></tr></thead>
+                <tbody id="approachingList"></tbody>
+            </table>
+        </div>
+
         <div id="missingSection" class="rank-card" style="display: none; width: 100%; border: 2px solid #e74c3c; margin-bottom: 20px;">
             <div class="rank-header" style="background: #e74c3c;">⚠️ 미골인자 현황 (잔여 <span id="missingCount">0</span>명)</div>
             <table>
@@ -639,8 +647,47 @@
         socket.on('runner_finished', (runner) => {
             showToast(`[완주:${runner.bibNumber}]`);
         });
+
+        // [추가] 자동골인 임박 선수 관리
+        let approachingRunners = {}; 
+
+        socket.on('runner_approaching', (data) => {
+            approachingRunners[data.bibNumber] = data;
+            renderApproachingList();
+        });
+
+        function renderApproachingList() {
+            const tbody = document.getElementById('approachingList');
+            const section = document.getElementById('approachingSection');
+            tbody.innerHTML = '';
+            
+            const keys = Object.keys(approachingRunners);
+            if (keys.length > 0) {
+                section.style.display = 'block';
+                keys.forEach(bib => {
+                    const r = approachingRunners[bib];
+                    const row = `<tr>
+                        <td>${r.bibNumber}</td>
+                        <td>${r.name}</td>
+                        <td style="font-weight:bold; color:#e67e22;">${r.distance}m</td>
+                    </tr>`;
+                    tbody.insertAdjacentHTML('beforeend', row);
+                });
+            } else {
+                section.style.display = 'none';
+            }
+        }
         
         socket.on('update_ui', (data) => {
+            // [추가] 완주 처리된 선수는 임박 목록에서 제거 (미골인자 목록에 없으면 제거)
+            const notFinishedBibs = new Set(data.notFinished.map(r => r.bibNumber));
+            Object.keys(approachingRunners).forEach(bib => {
+                if (!notFinishedBibs.has(bib)) {
+                    delete approachingRunners[bib];
+                }
+            });
+            renderApproachingList();
+
             // 1. 미골인자 처리 (20명 미만 시 노출)
             const count = data.notFinished.length;
             const missingSection = document.getElementById('missingSection');
