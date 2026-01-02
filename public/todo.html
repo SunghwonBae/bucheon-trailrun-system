@@ -6,6 +6,7 @@
     <title>아이들 시간 탐험대</title>
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
     <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
     <style>
         :root { --bg-color: #f0f9ff; --border-bold: 2px solid #3498db; --border-dot: 1px dashed #bdc3c7; }
         * { box-sizing: border-box; }
@@ -691,9 +692,10 @@
                 div.addEventListener('touchend', (e) => {
                     e.preventDefault();
                     if (isMomMode) {
-                        showMobileMenu(e, p.id, p.isCompleted, div);
+                        showMobileMenu(e, p.id, p.isCompleted, div, p.todoMaster.title);
                     } else {
                         // 일반 모드 터치 삭제 제거 (드래그로 삭제)
+                        showToast(p.todoMaster.title);
                     }
                 });
 
@@ -749,7 +751,7 @@
     }
 
     // 모바일용 퀵 메뉴 띄우기
-    function showMobileMenu(e, planId, currentStatus, element) {
+    function showMobileMenu(e, planId, currentStatus, element, title) {
         // 기존 메뉴 있으면 제거
         const oldMenu = document.getElementById('mobileMenu');
         if(oldMenu) oldMenu.remove();
@@ -761,8 +763,10 @@
         menu.style.left = '50%';
         menu.style.top = '50%';
         menu.style.transform = 'translate(-50%, -50%)';
+        menu.style.width = '280px';
 
         menu.innerHTML = `
+            <div style="padding:15px; font-weight:bold; border-bottom:1px solid #eee; background:#f8f9fa; color:#2c3e50; word-break: keep-all;">${title}</div>
             <button onclick="handleToggleComplete(${planId}, ${!currentStatus})">
                 ${currentStatus ? '☆ 별 빼기' : '★ 별 주기'}
             </button>
@@ -889,7 +893,30 @@
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ isCompleted: newState })
         });
+        
+        if (newState) {
+            fireworks();
+        }
+
         renderSchedule(); // 화면 갱신
+    }
+
+    // [추가] 폭죽 애니메이션 효과
+    function fireworks() {
+        var duration = 2 * 1000;
+        var animationEnd = Date.now() + duration;
+        var defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 6000 };
+
+        function random(min, max) { return Math.random() * (max - min) + min; }
+
+        var interval = setInterval(function() {
+            var timeLeft = animationEnd - Date.now();
+            if (timeLeft <= 0) return clearInterval(interval);
+
+            var particleCount = 50 * (timeLeft / duration);
+            confetti(Object.assign({}, defaults, { particleCount, origin: { x: random(0.1, 0.3), y: Math.random() - 0.2 } }));
+            confetti(Object.assign({}, defaults, { particleCount, origin: { x: random(0.7, 0.9), y: Math.random() - 0.2 } }));
+        }, 250);
     }
 
     // [추가] 엑셀 다운로드 기능
