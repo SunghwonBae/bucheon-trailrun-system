@@ -39,7 +39,7 @@
 
         /* 모바일 반응형 스타일 */
         @media (max-width: 768px) {
-            h1 { font-size: 1.4rem; margin: 15px 0; }
+            h1 { font-size: 1.1rem; margin: 15px 0; }
             .notice-banner { font-size: 0.9rem; padding: 12px; text-align: left; }
             .content { padding: 15px 10px; }
             .card { padding: 20px 15px; }
@@ -78,7 +78,7 @@
         <span>⚠️ 자동 골인 시스템 안내</span>
         1. <strong>공식 기록 우선:</strong> GPX 기록은 보완용이며, 최종 순위는 <strong>심판의 수동 기록이 우선</strong>합니다.<br>
         2. <strong>활성화 조건:</strong> 출발 버튼 입력 후 <strong>30분이 경과해야</strong> 자동 골인이 작동합니다.<br>
-        3. <strong>인식 범위:</strong> 골인 지점 <strong>반경 <span class="radius-val">20</span>m 이내</strong> 진입 시 자동 감지됩니다.<br>
+        3. <strong>인식 범위:</strong> 골인 지점 <strong style="white-space: nowrap;">반경 <span class="radius-val">20</span>m 이내</strong> 진입 시 자동 감지됩니다.<br>
         4. <strong>주의 사항:</strong> 정확한 측정을 위해 스마트폰의 <strong>화면을 끄지 말고</strong> 휴대해 주세요.
     </div>
 
@@ -129,6 +129,7 @@
         const socket = io();
         let watchId = null;
         let raceStartTime = null;
+        let raceFinishTime = null;
         let timerInterval = null;
         let currentRadius = 20; // 기본값
 
@@ -238,6 +239,7 @@
         socket.on('race_status', (data) => {
             if (data.isStarted) {
                 raceStartTime = new Date(data.startTime);
+                raceFinishTime = data.finishTime ? new Date(data.finishTime) : null;
                 document.getElementById('timerBox').style.display = 'block';
 
                 if (data.isFinished) {
@@ -254,7 +256,7 @@
 
         function updateTimer() {
             if (!raceStartTime) return;
-            const now = new Date();
+            const now = raceFinishTime ? raceFinishTime : new Date();
             const diff = now - raceStartTime;
             
             const h = Math.floor(diff / (1000 * 60 * 60));
