@@ -93,6 +93,18 @@
             50% { transform: scale(1.2); opacity: 0.8; }
             100% { transform: scale(1); opacity: 1; }
         }
+
+        /* [추가] 지도 마커 라벨 스타일 (배경색 적용) */
+        .runner-label {
+            background-color: rgba(255, 255, 255, 0.9); /* 흰색 배경 (약간 투명) */
+            border: 1px solid #3498db; /* 테두리 */
+            border-radius: 4px; /* 둥근 모서리 */
+            padding: 3px 6px; /* 내부 여백 */
+            font-size: 12px;
+            font-weight: bold;
+            color: #2c3e50;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2); /* 그림자 */
+        }
     </style>
 </head>
 <body>
@@ -262,12 +274,11 @@
                 const newMarker = new google.maps.Marker({
                     position: pos,
                     map: map,
+                    optimized: false, // [중요] CSS 클래스 적용을 위해 최적화 끄기
                     // [변경] 마우스 오버 없이 항상 텍스트 표시 (label 사용)
                     label: {
                         text: `${data.name} (${data.bibNumber})`,
-                        color: "#000000",
-                        fontSize: "11px",
-                        fontWeight: "bold"
+                        className: "runner-label" // CSS 클래스 적용
                     },
                     icon: {
                         path: google.maps.SymbolPath.CIRCLE,
@@ -275,7 +286,7 @@
                         fillColor: "#3498db",
                         fillOpacity: 1,
                         strokeWeight: 1,
-                        labelOrigin: new google.maps.Point(0, -10) // 텍스트를 마커 위로 올림
+                        labelOrigin: new google.maps.Point(0, -15) // 배경 박스 크기 고려하여 위치 조정
                     }
                 });
                 runnerMarkers[data.bibNumber] = newMarker;
