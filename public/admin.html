@@ -79,7 +79,7 @@
     </style>
 </head>
 <body>
-    <h1 id="raceTitle">🏃 부천트라이 산악마라톤대회 관리자페이지</h1>
+    <h1 id="raceTitle">🏃 부천트라이 산악마라톤대회 관리자</h1>
 
     <div class="controls">
         <button class="btn btn-add" onclick="addNewRow()">➕ 선수추가</button>
@@ -125,9 +125,9 @@
                 <th onclick="sortTable(0)" style="width: 70px;">배번 <span id="sort-icon-0">↕</span></th>
                 <th onclick="sortTable(1)">이름 <span id="sort-icon-1">↕</span></th>
                 <th onclick="sortTable(2)" style="width: 50px;">성별 <span id="sort-icon-2">↕</span></th>
-                <th onclick="sortTable(3)" style="width: 80px;">출생년도 <span id="sort-icon-3">↕</span></th>
+                <th onclick="sortTable(3)" style="width: 80px;">년생 <span id="sort-icon-3">↕</span></th>
                 <th onclick="sortTable(4)">소속 <span id="sort-icon-4">↕</span></th>
-                <th onclick="sortTable(5)">연락처 <span id="sort-icon-5">↕</span></th>
+                <th onclick="sortTable(5)">연락 <span id="sort-icon-5">↕</span></th>
                 <th onclick="sortTable(6)">입금 <span id="sort-icon-6">↕</span></th>
                 <th onclick="sortTable(7)">기록 <span id="sort-icon-7">↕</span></th>
                 <th onclick="sortTable(8)">기록증 <span id="sort-icon-8">↕</span></th>
@@ -162,8 +162,8 @@
     <script>
         const socket = io();
         const currentYear = new Date().getFullYear();
-        document.title = `${currentYear} 부천트라이 산악마라톤대회 - 관리자페이지`;
-        document.getElementById('raceTitle').innerText = `🏃 ${currentYear} 부천트라이 산악마라톤대회 - 관리자페이지`;
+        document.title = `${currentYear} 부천트라이 산악마라톤대회 - 관리자`;
+        document.getElementById('raceTitle').innerText = `🏃 ${currentYear} 부천트라이 산악마라톤대회 - 관리자`;
         // 구글 지도 관련 변수 및 함수
         let map, marker;
         let savedFinishLine = { lat: 37.503, lng: 126.795 }; // 기본값
