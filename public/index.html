@@ -497,6 +497,7 @@
                 if (data.isFinished) {
                     document.querySelector('.timer-box .info-text').innerText = "대회가 종료되었습니다.";
                     document.querySelector('.timer-box').style.background = "linear-gradient(135deg, #c0392b 0%, #e74c3c 100%)";
+                    document.getElementById('finishBtn').style.display = 'none';//대회종료버튼 숨김.
                     updateTimer(); // 현재 시간 기준으로 한 번 표시 후 정지
                     return;
                 }
