@@ -405,6 +405,11 @@
 
         // 대회 종료
         function finishRace() {
+            if (raceFinishTime) {
+                showToast("이미 종료되었습니다.");
+                return;
+            }
+
             if (localStorage.getItem('admin_access') === 'granted') {
                 if (timerInterval) clearInterval(timerInterval);
                 document.querySelector('.timer-box .info-text').innerText = "대회가 종료되었습니다.";
