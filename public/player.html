@@ -47,6 +47,29 @@
             .btn-start { padding: 15px 0; font-size: 1.1rem; width: 100%; }
             input { width: 90%; font-size: 1.5rem; }
         }
+
+        /* [추가] 커스텀 알림/모달 스타일 */
+        .toast-message {
+            position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
+            background: rgba(0,0,0,0.8); color: white; padding: 12px 24px; border-radius: 25px;
+            font-size: 1rem; z-index: 4000; opacity: 0; transition: opacity 0.3s; pointer-events: none;
+        }
+        .toast-message.show { opacity: 1; }
+
+        .custom-modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5); display: none; justify-content: center; align-items: center; z-index: 5000;
+        }
+        .custom-modal-box {
+            background: white; padding: 25px; border-radius: 15px; width: 300px;
+            text-align: center; box-shadow: 0 5px 20px rgba(0,0,0,0.3);
+        }
+        .custom-modal-text { margin-bottom: 20px; font-size: 1.1rem; word-break: keep-all; }
+        .custom-modal-btns { display: flex; gap: 10px; justify-content: center; }
+        .custom-modal-btn {
+            flex: 1; padding: 10px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold;
+        }
+        .btn-alert-ok { background: #3498db; color: white; width: 100%; }
     </style>
 </head>
 <body>
@@ -89,6 +112,18 @@
         <div id="radiusGuide" style="font-size: 0.9rem; color: #bdc3c7; margin-top:5px;">(<span class="radius-val">20</span>m 이내 진입 시 자동 골인)</div>
     </div>
 
+    <!-- 커스텀 알림/모달 요소 -->
+    <div id="toastMessage" class="toast-message">알림</div>
+
+    <div id="alertModal" class="custom-modal-overlay">
+        <div class="custom-modal-box">
+            <div id="alertText" class="custom-modal-text">알림</div>
+            <div class="custom-modal-btns">
+                <button class="custom-modal-btn btn-alert-ok" onclick="closeAlert()">확인</button>
+            </div>
+        </div>
+    </div>
+
     <script src="/socket.io/socket.io.js"></script>
     <script>
         const socket = io();
@@ -102,9 +137,31 @@
         document.title = `${currentYear} 부천트라이 산악마라톤대회 - 자동골인`;
         document.getElementById('raceTitle').innerText = `🏃 ${currentYear} 부천트라이 산악마라톤대회 - 자동골인`;
 
+        // [추가] 커스텀 UI 헬퍼 함수들
+        function showToast(msg) {
+            const el = document.getElementById('toastMessage');
+            el.innerText = msg;
+            el.classList.add('show');
+            setTimeout(() => el.classList.remove('show'), 2000);
+        }
+
+        let alertCallback = null;
+        function showAlert(msg, onOk) {
+            document.getElementById('alertText').innerText = msg;
+            document.getElementById('alertModal').style.display = 'flex';
+            alertCallback = onOk;
+        }
+        function closeAlert() {
+            document.getElementById('alertModal').style.display = 'none';
+            if(alertCallback) alertCallback();
+            alertCallback = null;
+        }
+
         function startTracking() {
             const bib = document.getElementById('bibNumber').value;
-            if(!bib) return alert("배번을 입력하세요!");
+            if(!bib) {
+                return showToast("배번을 입력하세요!");
+            }
 
             if (navigator.geolocation) {
                 // 정확도 높은 위치 추적 옵션
@@ -128,19 +185,20 @@
                         lng: lng 
                     });
                 }, (err) => {
-                    alert("GPS 수신에 실패했습니다. 설정에서 위치 권한을 허용해 주세요.");
+                    showAlert("GPS 수신에 실패했습니다. 설정에서 위치 권한을 허용해 주세요.");
                 }, options);
                 
                 document.getElementById('startBtn').disabled = true;
                 document.getElementById('startBtn').innerText = "추적 중 (공식 기록 대기)";
             } else {
-                alert("이 브라우저는 위치 추적을 지원하지 않습니다.");
+                showAlert("이 브라우저는 위치 추적을 지원하지 않습니다.");
             }
         }
 
         socket.on('auto_goal_success', (data) => {
-            alert(`[감지 성공] ${data.name}님, 골인 지점 통과가 확인되었습니다. 최종 순위는 심판 판정 후 확정됩니다.`);
-            location.href = "/"; 
+            showAlert(`[감지 성공] ${data.name}님, 골인 지점 통과가 확인되었습니다. 최종 순위는 심판 판정 후 확정됩니다.`, () => {
+                location.href = "/"; 
+            });
         });
 
         socket.on('distance_update', (data) => {

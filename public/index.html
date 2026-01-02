@@ -63,6 +63,48 @@
             }
             input { width: 120px; font-size: 1.5rem; }
         }
+
+        /* [추가] 커스텀 알림/모달 스타일 */
+        .toast-message {
+            position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
+            background: rgba(0,0,0,0.8); color: white; padding: 12px 24px; border-radius: 25px;
+            font-size: 1rem; z-index: 4000; opacity: 0; transition: opacity 0.3s; pointer-events: none;
+        }
+        .toast-message.show { opacity: 1; }
+
+        .custom-modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5); display: none; justify-content: center; align-items: center; z-index: 5000;
+        }
+        .custom-modal-box {
+            background: white; padding: 25px; border-radius: 15px; width: 300px;
+            text-align: center; box-shadow: 0 5px 20px rgba(0,0,0,0.3);
+        }
+        .custom-modal-text { margin-bottom: 20px; font-size: 1.1rem; word-break: keep-all; }
+        .custom-modal-btns { display: flex; gap: 10px; justify-content: center; }
+        .custom-modal-btn {
+            flex: 1; padding: 10px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold;
+        }
+        .btn-confirm-yes { background: #e74c3c; color: white; }
+        .btn-confirm-no { background: #95a5a6; color: white; }
+        .btn-alert-ok { background: #3498db; color: white; width: 100%; }
+
+        /* [추가] 카운트다운 스타일 */
+        .countdown-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.85); display: none;
+            justify-content: center; align-items: center; z-index: 6000;
+        }
+        #countdownNumber {
+            font-size: 15rem; color: #f1c40f; font-weight: bold;
+            font-variant-numeric: tabular-nums;
+            animation: pulse 1s infinite;
+        }
+        @keyframes pulse {
+            0% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.2); opacity: 0.8; }
+            100% { transform: scale(1); opacity: 1; }
+        }
     </style>
 </head>
 <body>
@@ -133,6 +175,43 @@
         </div>
     </div>
 
+    <!-- 커스텀 알림/모달 요소 -->
+    <div id="toastMessage" class="toast-message">알림</div>
+
+    <div id="confirmModal" class="custom-modal-overlay">
+        <div class="custom-modal-box">
+            <div id="confirmText" class="custom-modal-text">확인하시겠습니까?</div>
+            <div class="custom-modal-btns">
+                <button class="custom-modal-btn btn-confirm-no" onclick="closeConfirm(false)">취소</button>
+                <button class="custom-modal-btn btn-confirm-yes" onclick="closeConfirm(true)">확인</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="alertModal" class="custom-modal-overlay">
+        <div class="custom-modal-box">
+            <div id="alertText" class="custom-modal-text">알림</div>
+            <div class="custom-modal-btns">
+                <button class="custom-modal-btn btn-alert-ok" onclick="closeAlert()">확인</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="promptModal" class="custom-modal-overlay">
+        <div class="custom-modal-box">
+            <div id="promptText" class="custom-modal-text">비밀번호 입력</div>
+            <input type="password" id="promptInput" style="width:100%; padding:10px; margin-bottom:15px; border:1px solid #ddd; border-radius:5px; text-align:center;">
+            <div class="custom-modal-btns">
+                <button class="custom-modal-btn btn-confirm-no" onclick="closePrompt(null)">취소</button>
+                <button class="custom-modal-btn btn-alert-ok" onclick="closePrompt(document.getElementById('promptInput').value)">확인</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="countdownOverlay" class="countdown-overlay">
+        <div id="countdownNumber">5</div>
+    </div>
+
     <script src="/socket.io/socket.io.js"></script>
     <script>
         const socket = io();
@@ -158,21 +237,92 @@
             document.getElementById('logoutBtn').style.display = 'none';
         }
 
+        // [추가] 커스텀 UI 헬퍼 함수들
+        function showToast(msg) {
+            const el = document.getElementById('toastMessage');
+            el.innerText = msg;
+            el.classList.add('show');
+            setTimeout(() => el.classList.remove('show'), 2000);
+        }
+
+        let confirmCallback = null;
+        function showConfirm(msg, onYes, onNo) {
+            document.getElementById('confirmText').innerText = msg;
+            document.getElementById('confirmModal').style.display = 'flex';
+            confirmCallback = (result) => {
+                if(result && onYes) onYes();
+                else if(!result && onNo) onNo();
+            };
+        }
+        function closeConfirm(result) {
+            document.getElementById('confirmModal').style.display = 'none';
+            if(confirmCallback) confirmCallback(result);
+            confirmCallback = null;
+        }
+
+        let alertCallback = null;
+        function showAlert(msg, onOk) {
+            document.getElementById('alertText').innerText = msg;
+            document.getElementById('alertModal').style.display = 'flex';
+            alertCallback = onOk;
+        }
+        function closeAlert() {
+            document.getElementById('alertModal').style.display = 'none';
+            if(alertCallback) alertCallback();
+            alertCallback = null;
+        }
+
+        let promptCallback = null;
+        function showPrompt(msg, onResult) {
+            document.getElementById('promptText').innerText = msg;
+            document.getElementById('promptInput').value = '';
+            document.getElementById('promptModal').style.display = 'flex';
+            document.getElementById('promptInput').focus();
+            promptCallback = onResult;
+        }
+        function closePrompt(val) {
+            document.getElementById('promptModal').style.display = 'none';
+            if(promptCallback) promptCallback(val);
+            promptCallback = null;
+        }
+
         let raceStartTime = null;
+        let raceFinishTime = null; // [추가] 대회 종료 시간
         let timerInterval = null;
 
         // 1. 대회 출발
         function startRace() {
+            const runCountdownAndStart = () => {
+                const overlay = document.getElementById('countdownOverlay');
+                const num = document.getElementById('countdownNumber');
+                let count = 5;
+                
+                overlay.style.display = 'flex';
+                num.innerText = count;
+                
+                const interval = setInterval(() => {
+                    count--;
+                    if (count > 0) {
+                        num.innerText = count;
+                    } else {
+                        clearInterval(interval);
+                        overlay.style.display = 'none';
+                        socket.emit('start_race'); // 카운트다운 종료 후 출발 신호 전송
+                    }
+                }, 1000);
+            };
+
             if (localStorage.getItem('admin_access') === 'granted') {
-                socket.emit('start_race');
+                runCountdownAndStart();
                 return;
             }
-            const password = prompt("대회 출발을 위해 비밀번호를 입력하세요. 이미한번 출발했으면 관리자페이지에 기록초기화후 다시 출발해주세요.");
-            if (password === adminPassword) {
-                socket.emit('start_race');
-            } else {
-                alert("비밀번호가 틀렸습니다.");
-            }
+            showPrompt("대회 출발 비밀번호 입력 (재출발 시 관리자 초기화 필요)", (password) => {
+                if (password === adminPassword) {
+                    runCountdownAndStart();
+                } else if (password !== null) {
+                    showToast("비밀번호가 틀렸습니다.");
+                }
+            });
         }
 
         // 관리자 페이지 이동 시 비번 확인 및 토큰 부여
@@ -181,14 +331,15 @@
                 location.href = '/admin.html';
                 return;
             }
-            const password = prompt("관리자 페이지 비밀번호를 입력하세요.");
-            if (password === adminPassword) {
-                // 간단한 세션 토큰 역할을 할 값을 로컬 스토리지에 저장
-                localStorage.setItem('admin_access', 'granted');
-                location.href = '/admin.html';
-            } else {
-                alert("권한이 없습니다.");
-            }
+            showPrompt("관리자 페이지 비밀번호를 입력하세요.", (password) => {
+                if (password === adminPassword) {
+                    // 간단한 세션 토큰 역할을 할 값을 로컬 스토리지에 저장
+                    localStorage.setItem('admin_access', 'granted');
+                    location.href = '/admin.html';
+                } else if (password !== null) {
+                    showToast("권한이 없습니다.");
+                }
+            });
         }
 
         // 관리자 로그아웃
@@ -205,30 +356,32 @@
                 socket.emit('finish_race');
                 return;
             }
-            const password = prompt("대회 종료를 위해 비밀번호를 입력하세요.");
-            if (password === adminPassword) {
-                if (timerInterval) clearInterval(timerInterval);
-                document.querySelector('.timer-box .info-text').innerText = "대회가 종료되었습니다.";
-                socket.emit('finish_race'); // 서버에 미완주자 일괄 처리 요청
-            } else {
-                alert("비밀번호가 틀렸습니다.");
-            }
+            showPrompt("대회 종료를 위해 비밀번호를 입력하세요.", (password) => {
+                if (password === adminPassword) {
+                    if (timerInterval) clearInterval(timerInterval);
+                    document.querySelector('.timer-box .info-text').innerText = "대회가 종료되었습니다.";
+                    socket.emit('finish_race'); // 서버에 미완주자 일괄 처리 요청
+                } else if (password !== null) {
+                    showToast("비밀번호가 틀렸습니다.");
+                }
+            });
         }
 
         // 리셋 함수
         function resetRace() {
-            if(confirm("⚠️ 경고: 모든 선수의 출발 및 도착 기록이 삭제됩니다. 정말 초기화하시겠습니까?")) {
+            showConfirm("⚠️ 경고: 모든 선수의 출발 및 도착 기록이 삭제됩니다. 정말 초기화하시겠습니까?", () => {
                 if (localStorage.getItem('admin_access') === 'granted') {
                     socket.emit('reset_race');
                     return;
                 }
-                const password = prompt("관리자 비밀번호를 입력하세요");
-                if(password === adminPassword) { // 간단한 보안 장치
-                    socket.emit('reset_race');
-                } else {
-                    alert("비밀번호가 틀렸습니다.");
-                }
-            }
+                showPrompt("관리자 비밀번호를 입력하세요", (password) => {
+                    if(password === adminPassword) { // 간단한 보안 장치
+                        socket.emit('reset_race');
+                    } else if (password !== null) {
+                        showToast("비밀번호가 틀렸습니다.");
+                    }
+                });
+            });
         }
 
         socket.on('current_settings', (data) => {
@@ -241,14 +394,16 @@
 
         // 서버로부터 리셋 완료 신호를 받으면 화면 새로고침
         socket.on('race_reset_complete', () => {
-            alert("기록이 초기화되었습니다.");
-            location.reload(); // 페이지를 새로고침하여 모든 상태 초기화
+            showAlert("기록이 초기화되었습니다.", () => {
+                location.reload(); // 페이지를 새로고침하여 모든 상태 초기화
+            });
         });
 
         // 2. 타이머 작동 로직
         socket.on('race_status', (data) => {
             if (data.isStarted) {
                 raceStartTime = new Date(data.startTime);
+                raceFinishTime = data.finishTime ? new Date(data.finishTime) : null; // [추가] 종료 시간 설정
                 
                 // 1. 버튼 비활성화 및 스타일 변경
                 const btn = document.getElementById('startBtn');
@@ -274,7 +429,8 @@
 
         function updateTimer() {
             if (!raceStartTime) return;
-            const now = new Date();
+            // [변경] 종료 시간이 있으면 종료 시간 기준, 없으면 현재 시간 기준
+            const now = raceFinishTime ? raceFinishTime : new Date();
             const diff = now - raceStartTime;
             
             const h = Math.floor(diff / (1000 * 60 * 60));
@@ -294,7 +450,7 @@
             }
         });
 
-        socket.on('error_msg', (msg) => alert(msg));
+        socket.on('error_msg', (msg) => showAlert(msg));
         
         socket.on('update_ui', (data) => {
             // 1. 미골인자 처리 (20명 미만 시 노출)

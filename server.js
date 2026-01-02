@@ -193,17 +193,16 @@ io.on('connection', async (socket) => {
     socket.emit('current_settings', { rankLimit, seniorYear, goalRadius, finishLine: FINISH_LINE });
 
     // 1. 접속 시 현재 대회 상태 전송 (이미 출발했는지 확인)
-    const firstRunner = await prisma.trailRunner.findFirst({
-        where: { createdAt: yearCondition }
-    });
-    if (firstRunner && firstRunner.startTime) {
-        // [추가] 미완주자가 0명이면 대회 종료로 판단
-        const notFinishedCount = await prisma.trailRunner.count({
-            where: { startTime: { not: null }, finishTime: null, createdAt: yearCondition }
+    const raceSetting = await prisma.raceSetting.findUnique({ where: { year: currentYear } });
+    
+    if (raceSetting && raceSetting.startTime) {
+        const isFinished = !!raceSetting.finishTime;
+        socket.emit('race_status', { 
+            startTime: raceSetting.startTime, 
+            finishTime: raceSetting.finishTime,
+            isStarted: true, 
+            isFinished 
         });
-        const isFinished = (notFinishedCount === 0);
-
-        socket.emit('race_status', { startTime: firstRunner.startTime, isStarted: true, isFinished });
     }
     
     const initialData = await getRaceData();
@@ -213,26 +212,34 @@ io.on('connection', async (socket) => {
     socket.on('start_race', async () => {
 
         // 중복 클릭 방지를 위해 서버에서도 한 번 더 체크 가능
-        const alreadyStarted = await prisma.trailRunner.findFirst({
-            where: { 
-                startTime: { not: null },
-                createdAt: yearCondition
-            }
-        });
+        const setting = await prisma.raceSetting.findUnique({ where: { year: currentYear } });
         
-        if (alreadyStarted) return; // 이미 시작됐다면 무시
+        if (setting && setting.startTime) return; // 이미 시작됐다면 무시
 
         const now = new Date();
+        
+        // [변경] RaceSetting에 시작 시간 기록
+        await prisma.raceSetting.update({
+            where: { year: currentYear },
+            data: { startTime: now, finishTime: null }
+        });
+
         // 모든 선수의 출발 시간을 현재 시간으로 설정
         await prisma.trailRunner.updateMany({
             where: { createdAt: yearCondition },
             data: { startTime: now }
         });
-        io.emit('race_status', { startTime: now , isStarted: true}); // 모든 클라이언트에 타이머 시작 알림
+        io.emit('race_status', { startTime: now, finishTime: null, isStarted: true, isFinished: false }); // 모든 클라이언트에 타이머 시작 알림
     });
     // [이벤트] 전체 기록 리셋 (초기화)
     socket.on('reset_race', async () => {
         try {
+            // [변경] RaceSetting 초기화
+            await prisma.raceSetting.update({
+                where: { year: currentYear },
+                data: { startTime: null, finishTime: null }
+            });
+
             await prisma.trailRunner.updateMany({
                 where: { createdAt: yearCondition },
                 data: { 
@@ -253,11 +260,23 @@ io.on('connection', async (socket) => {
     socket.on('finish_race', async () => {
         try {
             const now = new Date();
+            
+            // [변경] RaceSetting에 종료 시간 기록
+            await prisma.raceSetting.update({
+                where: { year: currentYear },
+                data: { finishTime: now }
+            });
+
             // 출발은 했으나 아직 finishTime이 없는 선수들을 현재 시간으로 일괄 업데이트
             await prisma.trailRunner.updateMany({
                 where: { startTime: { not: null }, finishTime: null, createdAt: yearCondition },
                 data: { finishTime: now }
             });
+            
+            // [추가] 클라이언트에 종료 상태 전송 (타이머 멈춤용)
+            const setting = await prisma.raceSetting.findUnique({ where: { year: currentYear } });
+            io.emit('race_status', { startTime: setting.startTime, finishTime: setting.finishTime, isStarted: true, isFinished: true });
+
             const newData = await getRaceData();
             io.emit('update_ui', newData);
         } catch (err) {

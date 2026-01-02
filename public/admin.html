@@ -16,7 +16,6 @@
         th:hover { background: #e9ecef; }
         td { border: 1px solid #ddd; padding: 8px; text-align: center; }
         input[type="text"], input[type="number"] { width: 90%; padding: 5px; border: 1px solid #ccc; border-radius: 4px; }
-        .toast { position: fixed; top: 20px; right: 20px; background: #2ecc71; color: white; padding: 10px 20px; border-radius: 5px; display: none; z-index: 1000; }
         
         /* 버튼 스타일 통일 */
         .btn { 
@@ -52,10 +51,34 @@
             th, td { padding: 8px 5px; font-size: 0.9rem; }
             .btn { padding: 12px; font-size: 1rem; }
         }
+
+        /* [추가] 커스텀 알림/모달 스타일 */
+        .toast-message {
+            position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
+            background: rgba(0,0,0,0.8); color: white; padding: 12px 24px; border-radius: 25px;
+            font-size: 1rem; z-index: 4000; opacity: 0; transition: opacity 0.3s; pointer-events: none;
+        }
+        .toast-message.show { opacity: 1; }
+
+        .custom-modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5); display: none; justify-content: center; align-items: center; z-index: 5000;
+        }
+        .custom-modal-box {
+            background: white; padding: 25px; border-radius: 15px; width: 300px;
+            text-align: center; box-shadow: 0 5px 20px rgba(0,0,0,0.3);
+        }
+        .custom-modal-text { margin-bottom: 20px; font-size: 1.1rem; word-break: keep-all; }
+        .custom-modal-btns { display: flex; gap: 10px; justify-content: center; }
+        .custom-modal-btn {
+            flex: 1; padding: 10px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold;
+        }
+        .btn-confirm-yes { background: #e74c3c; color: white; }
+        .btn-confirm-no { background: #95a5a6; color: white; }
+        .btn-alert-ok { background: #3498db; color: white; width: 100%; }
     </style>
 </head>
 <body>
-    <div id="toast" class="toast">수정되었습니다.</div>
     <h1 id="raceTitle">🏃 부천트라이 산악마라톤대회 관리자페이지</h1>
 
     <div class="controls">
@@ -114,6 +137,28 @@
         <tbody id="runnerList"></tbody>
     </table>
 
+    <!-- 커스텀 알림/모달 요소 -->
+    <div id="toastMessage" class="toast-message">알림</div>
+
+    <div id="confirmModal" class="custom-modal-overlay">
+        <div class="custom-modal-box">
+            <div id="confirmText" class="custom-modal-text">확인하시겠습니까?</div>
+            <div class="custom-modal-btns">
+                <button class="custom-modal-btn btn-confirm-no" onclick="closeConfirm(false)">취소</button>
+                <button class="custom-modal-btn btn-confirm-yes" onclick="closeConfirm(true)">확인</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="alertModal" class="custom-modal-overlay">
+        <div class="custom-modal-box">
+            <div id="alertText" class="custom-modal-text">알림</div>
+            <div class="custom-modal-btns">
+                <button class="custom-modal-btn btn-alert-ok" onclick="closeAlert()">확인</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         const socket = io();
         const currentYear = new Date().getFullYear();
@@ -122,6 +167,41 @@
         // 구글 지도 관련 변수 및 함수
         let map, marker;
         let savedFinishLine = { lat: 37.503, lng: 126.795 }; // 기본값
+
+        // [추가] 커스텀 UI 헬퍼 함수들
+        function showToast(msg) {
+            const el = document.getElementById('toastMessage');
+            el.innerText = msg;
+            el.classList.add('show');
+            setTimeout(() => el.classList.remove('show'), 2000);
+        }
+
+        let confirmCallback = null;
+        function showConfirm(msg, onYes, onNo) {
+            document.getElementById('confirmText').innerText = msg;
+            document.getElementById('confirmModal').style.display = 'flex';
+            confirmCallback = (result) => {
+                if(result && onYes) onYes();
+                else if(!result && onNo) onNo();
+            };
+        }
+        function closeConfirm(result) {
+            document.getElementById('confirmModal').style.display = 'none';
+            if(confirmCallback) confirmCallback(result);
+            confirmCallback = null;
+        }
+
+        let alertCallback = null;
+        function showAlert(msg, onOk) {
+            document.getElementById('alertText').innerText = msg;
+            document.getElementById('alertModal').style.display = 'flex';
+            alertCallback = onOk;
+        }
+        function closeAlert() {
+            document.getElementById('alertModal').style.display = 'none';
+            if(alertCallback) alertCallback();
+            alertCallback = null;
+        }
 
         function initMap() {
             map = new google.maps.Map(document.getElementById("map"), {
@@ -148,11 +228,11 @@
         }
 
         function updateMarkerPosition(lat, lng) {
-            if(confirm("이 위치를 골인 지점으로 설정하시겠습니까?")) {
+            showConfirm("이 위치를 골인 지점으로 설정하시겠습니까?", () => {
                 socket.emit('update_finish_line', { lat, lng });
-            } else {
+            }, () => {
                 marker.setPosition(savedFinishLine); // 취소 시 원래 위치로 복귀
-            }
+            });
         }
 
         // 초기 설정값 수신 및 동기화
@@ -200,8 +280,9 @@
 
         // 1. 직접 접속 차단 로직 (페이지 최상단)
         if (localStorage.getItem('admin_access') !== 'granted') {
-            alert("잘못된 접근입니다. 메인 페이지에서 비밀번호를 입력하세요.");
-            location.href = '/';
+            showAlert("잘못된 접근입니다. 메인 페이지에서 비밀번호를 입력하세요.", () => {
+                location.href = '/';
+            });
         }
 
         // 시간 포맷 함수 (HH:mm:ss)
@@ -289,20 +370,13 @@
                 `width=${width},height=${height},top=${top},left=${left},scrollbars=yes,resizable=yes`);
         }
 
-        function showToast(message = "수정되었습니다.") {
-            const toast = document.getElementById('toast');
-            toast.innerText = message;
-            toast.style.display = 'block';
-            setTimeout(() => { toast.style.display = 'none'; }, 2000);
-        }
-
         // 기록 초기화 (3가지 칼럼 통합 삭제)
         async function resetAllRecords() {
-            if(confirm("모든 선수의 출발, 도착(수동/자동) 기록을 삭제하시겠습니까?")) {
+            showConfirm("모든 선수의 출발, 도착(수동/자동) 기록을 삭제하시겠습니까?", async () => {
                 await fetch('/api/runners/reset-records', { method: 'POST' });
-                alert("초기화되었습니다.");
+                showAlert("초기화되었습니다.");
                 fetchRunners();
-            }
+            });
         }
 
         // 1. 업로드용 템플릿 다운로드 함수
@@ -330,7 +404,7 @@
                 const sheetName = workbook.SheetNames[0];
                 const json = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName]);
 
-                if (confirm(`${json.length}명의 데이터를 등록하시겠습니까? (배번 중복 시 기존 정보가 업데이트됩니다.)`)) {
+                showConfirm(`${json.length}명의 데이터를 등록하시겠습니까? (배번 중복 시 기존 정보가 업데이트됩니다.)`, async () => {
                     try {
                         const response = await fetch('/api/runners/bulk', {
                             method: 'POST',
@@ -338,12 +412,12 @@
                             body: JSON.stringify(json)
                         });
                         const result = await response.json();
-                        alert(result.message);
+                        showAlert(result.message);
                         fetchRunners(); // 목록 새로고침
                     } catch (err) {
-                        alert("업로드 실패: 데이터 형식을 확인해주세요.");
+                        showAlert("업로드 실패: 데이터 형식을 확인해주세요.");
                     }
-                }
+                });
                 input.value = ''; // 파일 입력 초기화
             };
             reader.readAsArrayBuffer(file);
@@ -445,7 +519,7 @@
             const bib = tr.querySelector('.new-bib').value;
             const name = tr.querySelector('.new-name').value;
 
-            if(!bib || !name) return alert("배번과 이름은 필수입니다.");
+            if(!bib || !name) return showToast("배번과 이름은 필수입니다.");
 
             const newRunner = {
                 bibNumber: bib,
@@ -465,12 +539,12 @@
                     body: JSON.stringify([newRunner])
                 });
                 const result = await response.json();
-                alert("저장되었습니다.");
+                showToast("저장되었습니다.");
                 tr.remove(); // 입력 행 삭제
                 fetchRunners(); // 목록 갱신
             } catch (err) {
                 console.error(err);
-                alert("저장 실패: 배번 중복 등을 확인해주세요.");
+                showAlert("저장 실패: 배번 중복 등을 확인해주세요.");
             }
         }
 
