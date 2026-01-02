@@ -91,6 +91,13 @@
             justify-content: center;
             text-align: center;
             border-radius: 8px;
+            overflow: hidden;
+        }
+        .todo-text {
+            white-space: nowrap; 
+            overflow: hidden; 
+            text-overflow: ellipsis;
+            max-width: 100%;
         }
 
         /* 기간에 따른 높이 설정 (30분당 약 50px) */
@@ -147,6 +154,20 @@
             .todo-storage .todo-item { width: auto; }
             .todo-item { margin: 2px; font-size: 0.9rem; padding: 8px 12px; }
         }
+
+        /* [추가] 휴지통 스타일 */
+        .trash-drop-zone {
+            position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%);
+            width: 220px; height: 70px;
+            background: #ff7675; color: white;
+            border-radius: 35px;
+            display: flex; justify-content: center; align-items: center; gap: 10px;
+            font-size: 1.2rem; font-weight: bold;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.3);
+            z-index: 3000;
+            opacity: 0; pointer-events: none; transition: opacity 0.3s, transform 0.2s;
+        }
+        .trash-drop-zone.active { opacity: 1; pointer-events: auto; }
     </style>
 </head>
 <body>
@@ -238,6 +259,8 @@
         </div>
         </div>
 
+    <div id="trashCan" class="trash-drop-zone">🗑️ 여기로 드래그</div>
+
 <script>
     const API_BASE = '/api/todo'; 
     // [수정] 저장된 날짜가 있으면 불러오고, 없으면 오늘 날짜 사용
@@ -254,6 +277,7 @@
         updateDaysToShow();
         loadMasters();    // 1. 엄마의 할 일 목록 로드
         renderSchedule(); // 2. 시간표 그리기 및 데이터 로드
+        initTrashCan();   // [추가] 휴지통 초기화
     });
 
     // 화면 크기 변경 감지
@@ -391,6 +415,8 @@
                 animation: 150,
                 delay: 100, // 모바일 터치 인식을 위해 약간의 지연 추가
                 delayOnTouchOnly: true,
+                onStart: () => toggleTrash(true), // [추가] 드래그 시작 시 휴지통 표시
+                onEnd: () => toggleTrash(false),   // [추가] 드래그 종료 시 휴지통 숨김
                 onMove: function (evt) {
                     // [추가] 선택된 아이가 있을 경우 다른 아이 슬롯 진입 차단
                     if (activeChild) {
@@ -477,12 +503,65 @@
 
             // 엄마 창고 Sortable (복제 모드)
             new Sortable(container, {
-                group: { name: 'shared', pull: 'clone', put: false },
+                group: { name: 'shared', pull: 'clone', put: true },
                 sort: false, animation: 150,
                 delay: 100, // [추가] 모바일 터치 시 드래그 지연
-                delayOnTouchOnly: true
+                delayOnTouchOnly: true,
+                onStart: () => toggleTrash(true), // [추가]
+                onEnd: () => toggleTrash(false),   // [추가]
+                onAdd: async function (evt) {
+                    const item = evt.item;
+                    const planId = item.dataset.planId;
+                    if (planId) {
+                        // 슬롯에서 보물창고로 드래그 시 삭제 처리
+                        if (confirm("이 할 일을 삭제할까요?")) {
+                            await fetch(`${API_BASE}/plans/${planId}`, { method: 'DELETE' });
+                            item.remove(); 
+                        } else {
+                            item.remove(); // 드롭된 아이템 제거
+                            renderSchedule(); // 원래 위치 복구
+                        }
+                    } else {
+                        item.remove();
+                    }
+                }
             });
         } catch(err) { console.error(err); }
+    }
+
+    // [추가] 휴지통 기능 초기화
+    function initTrashCan() {
+        const trashEl = document.getElementById('trashCan');
+        new Sortable(trashEl, {
+            group: 'shared',
+            onAdd: async function (evt) {
+                const item = evt.item;
+                const planId = item.dataset.planId;
+                const masterId = item.dataset.id;
+
+                if (confirm("정말 삭제하시겠습니까?")) {
+                    if (planId) {
+                        // 일정 삭제
+                        await fetch(`${API_BASE}/plans/${planId}`, { method: 'DELETE' });
+                    } else if (masterId) {
+                        // 보물창고 아이템 삭제
+                        await fetch(`${API_BASE}/masters/${masterId}`, { method: 'DELETE' });
+                        loadMasters(); 
+                    }
+                    item.remove(); 
+                } else {
+                    // 취소 시 복구
+                    renderSchedule();
+                    loadMasters();
+                }
+            }
+        });
+    }
+
+    function toggleTrash(show) {
+        const el = document.getElementById('trashCan');
+        if(show) el.classList.add('active');
+        else el.classList.remove('active');
     }
 
         // 모바일 메뉴 제어 변수
@@ -503,7 +582,12 @@
                 div.style.height = (p.duration * 50 - 4) + "px"; // 30분당 50px 계산
                 div.style.position = "absolute"; // 겹침 허용을 위해 absolute
                 div.style.top = "2px";
-                div.innerText = (p.isCompleted ? "★ " : "") + p.todoMaster.title;
+                
+                const textSpan = document.createElement('span');
+                textSpan.className = 'todo-text';
+                textSpan.innerText = (p.isCompleted ? "★ " : "") + p.todoMaster.title;
+                div.appendChild(textSpan);
+
                 div.dataset.planId = p.id;
                 div.dataset.duration = p.duration;
 
@@ -523,8 +607,7 @@
                     if (isMomMode) {
                         showMobileMenu(e, p.id, p.isCompleted, div);
                     } else {
-                        // 일반 모드에선 삭제 확인만
-                        deletePlan(p.id, div);
+                        // 일반 모드 터치 삭제 제거 (드래그로 삭제)
                     }
                 });
 
