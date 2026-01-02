@@ -230,6 +230,39 @@
     <script>
         const socket = io();
 
+        // [추가] 오디오 효과음 (Web Audio API)
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        
+        function playBeep(type) {
+            // 브라우저 정책상 사용자 인터랙션이 없으면 소리가 안 날 수 있음 (resume 시도)
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume().catch(() => {});
+            }
+            
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+
+            if (type === 'count') {
+                // 삑 (짧고 높은음)
+                osc.frequency.setValueAtTime(880, audioCtx.currentTime); 
+                gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.1);
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.1);
+            } else if (type === 'start') {
+                // 빵 (출발 신호)
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(440, audioCtx.currentTime);
+                gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 1.0);
+                osc.start();
+                osc.stop(audioCtx.currentTime + 1.0);
+            }
+        }
+
         // [자동 설정] 현재 연도 적용
         const currentYear = new Date().getFullYear();
         document.title = `${currentYear} 부천트라이 산악마라톤대회`;
@@ -312,38 +345,38 @@
 
         // 1. 대회 출발
         function startRace() {
-            const runCountdownAndStart = () => {
-                const overlay = document.getElementById('countdownOverlay');
-                const num = document.getElementById('countdownNumber');
-                let count = 5;
-                
-                overlay.style.display = 'flex';
-                num.innerText = count;
-                
-                const interval = setInterval(() => {
-                    count--;
-                    if (count > 0) {
-                        num.innerText = count;
-                    } else {
-                        clearInterval(interval);
-                        overlay.style.display = 'none';
-                        socket.emit('start_race'); // 카운트다운 종료 후 출발 신호 전송
-                    }
-                }, 1000);
+            const triggerStart = () => {
+                // 로컬 카운트다운 대신 서버에 시작 요청을 바로 전송 (서버가 카운트다운 방송)
+                socket.emit('start_race');
             };
 
             if (localStorage.getItem('admin_access') === 'granted') {
-                runCountdownAndStart();
+                triggerStart();
                 return;
             }
             showPrompt("대회 출발 비밀번호 입력 (재출발 시 관리자 초기화 필요)", (password) => {
                 if (password === adminPassword) {
-                    runCountdownAndStart();
+                    triggerStart();
                 } else if (password !== null) {
                     showToast("비밀번호가 틀렸습니다.");
                 }
             });
         }
+
+        // [추가] 서버로부터 카운트다운 수신 (모든 클라이언트 동기화)
+        socket.on('countdown', (count) => {
+            const overlay = document.getElementById('countdownOverlay');
+            const num = document.getElementById('countdownNumber');
+            
+            if (count > 0) {
+                overlay.style.display = 'flex';
+                num.innerText = count;
+                playBeep('count');
+            } else {
+                overlay.style.display = 'none';
+                playBeep('start');
+            }
+        });
 
         // 관리자 페이지 이동 시 비번 확인 및 토큰 부여
         function goToAdmin() {
@@ -421,6 +454,7 @@
         // 2. 타이머 작동 로직
         socket.on('race_status', (data) => {
             if (data.isStarted) {
+                document.getElementById('countdownOverlay').style.display = 'none'; // 대회 시작 시 카운트다운 숨김 보장
                 raceStartTime = new Date(data.startTime);
                 raceFinishTime = data.finishTime ? new Date(data.finishTime) : null; // [추가] 종료 시간 설정
                 

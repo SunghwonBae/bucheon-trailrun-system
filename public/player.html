@@ -70,6 +70,23 @@
             flex: 1; padding: 10px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold;
         }
         .btn-alert-ok { background: #3498db; color: white; width: 100%; }
+
+        /* [추가] 카운트다운 스타일 */
+        .countdown-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.85); display: none;
+            justify-content: center; align-items: center; z-index: 6000;
+        }
+        #countdownNumber {
+            font-size: 15rem; color: #f1c40f; font-weight: bold;
+            font-variant-numeric: tabular-nums;
+            animation: pulse 1s infinite;
+        }
+        @keyframes pulse {
+            0% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.2); opacity: 0.8; }
+            100% { transform: scale(1); opacity: 1; }
+        }
     </style>
 </head>
 <body>
@@ -122,6 +139,10 @@
                 <button class="custom-modal-btn btn-alert-ok" onclick="closeAlert()">확인</button>
             </div>
         </div>
+    </div>
+
+    <div id="countdownOverlay" class="countdown-overlay">
+        <div id="countdownNumber">5</div>
     </div>
 
     <script src="/socket.io/socket.io.js"></script>
@@ -238,6 +259,7 @@
         // [타이머] 대회 상태 수신
         socket.on('race_status', (data) => {
             if (data.isStarted) {
+                document.getElementById('countdownOverlay').style.display = 'none';
                 raceStartTime = new Date(data.startTime);
                 raceFinishTime = data.finishTime ? new Date(data.finishTime) : null;
                 document.getElementById('timerBox').style.display = 'block';
@@ -251,6 +273,19 @@
                 if (timerInterval) clearInterval(timerInterval);
                 timerInterval = setInterval(updateTimer, 1000);
                 updateTimer();
+            }
+        });
+
+        // [추가] 서버로부터 카운트다운 수신
+        socket.on('countdown', (count) => {
+            const overlay = document.getElementById('countdownOverlay');
+            const num = document.getElementById('countdownNumber');
+            
+            if (count > 0) {
+                overlay.style.display = 'flex';
+                num.innerText = count;
+            } else {
+                overlay.style.display = 'none';
             }
         });
 

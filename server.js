@@ -31,6 +31,7 @@ let goalRadius = 20;
 let rankLimit = 5;   
 let seniorYear = currentYear - 48; 
 let FINISH_LINE = { lat: 37.503, lng: 126.795 }; 
+let isCountingDown = false; // [추가] 카운트다운 진행 상태
 
 // [함수] 대회 설정 로드 (DB 연동)
 async function loadRaceSettings() {
@@ -211,25 +212,41 @@ io.on('connection', async (socket) => {
     // [이벤트] 대회 출발 버튼 클릭 시
     socket.on('start_race', async () => {
 
+        if (isCountingDown) return; // 이미 카운트다운 중이면 무시
+
         // 중복 클릭 방지를 위해 서버에서도 한 번 더 체크 가능
         const setting = await prisma.raceSetting.findUnique({ where: { year: currentYear } });
         
         if (setting && setting.startTime) return; // 이미 시작됐다면 무시
 
-        const now = new Date();
-        
-        // [변경] RaceSetting에 시작 시간 기록
-        await prisma.raceSetting.update({
-            where: { year: currentYear },
-            data: { startTime: now, finishTime: null }
-        });
+        isCountingDown = true;
+        let count = 5;
+        io.emit('countdown', count); // 5초 시작 알림
 
-        // 모든 선수의 출발 시간을 현재 시간으로 설정
-        await prisma.trailRunner.updateMany({
-            where: { createdAt: yearCondition },
-            data: { startTime: now }
-        });
-        io.emit('race_status', { startTime: now, finishTime: null, isStarted: true, isFinished: false }); // 모든 클라이언트에 타이머 시작 알림
+        const interval = setInterval(async () => {
+            count--;
+            if (count > 0) {
+                io.emit('countdown', count);
+            } else {
+                clearInterval(interval);
+                isCountingDown = false;
+                io.emit('countdown', 0); // 카운트다운 종료 (UI 숨김)
+
+                const now = new Date();
+                // [변경] RaceSetting에 시작 시간 기록
+                await prisma.raceSetting.update({
+                    where: { year: currentYear },
+                    data: { startTime: now, finishTime: null }
+                });
+
+                // 모든 선수의 출발 시간을 현재 시간으로 설정
+                await prisma.trailRunner.updateMany({
+                    where: { createdAt: yearCondition },
+                    data: { startTime: now }
+                });
+                io.emit('race_status', { startTime: now, finishTime: null, isStarted: true, isFinished: false }); // 모든 클라이언트에 타이머 시작 알림
+            }
+        }, 1000);
     });
     // [이벤트] 전체 기록 리셋 (초기화)
     socket.on('reset_race', async () => {
