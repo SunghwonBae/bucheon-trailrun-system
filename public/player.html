@@ -30,7 +30,7 @@
         .notice-banner { 
             background: #fff8e1; border-left: 5px solid #ffc107;
             padding: 15px; border-radius: 12px;
-            font-size: 0.9rem; line-height: 1.6; color: #5d4037;
+            font-size: 0.9rem; color: #5d4037;
             margin-bottom: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.05);
             text-align: left;
         }
@@ -119,16 +119,30 @@
         <h1 id="raceTitle">🏃부천트라이 산악마라톤대회-자동골인</h1>
         
         <div class="notice-banner">
-            <strong>⚠️ 자동 골인 시스템 안내</strong><br>
-            1. <strong>공식 기록 우선:</strong> GPX 기록은 보완용이며, 최종 순위는 심판의 수동 기록이 우선합니다.<br>
-            2. <strong>활성화 조건:</strong> 출발 후 <strong>30분 경과 시</strong> 작동합니다.<br>
-            3. <strong>인식 범위:</strong> 골인 지점 <strong>반경 <span class="radius-val">20</span>m 이내</strong> 진입 시 자동 감지.<br>
-            4. <strong>주의:</strong> 정확한 측정을 위해 <strong>화면을 끄지 마세요.</strong>
+            <div style="margin-bottom: 8px;"><strong>⚠️ 자동 골인 시스템 안내</strong></div>
+            <table style="width: 100%; border-collapse: collapse;">
+                <tr>
+                    <td style="vertical-align: top; white-space: nowrap; padding-right: 10px; font-weight: bold; color: #d35400;">1. 공식기록</td>
+                    <td style="vertical-align: top; padding-bottom: 4px;">GPX 기록은 보완용이며, 최종 순위는 심판의 수동 기록이 우선합니다.</td>
+                </tr>
+                <tr>
+                    <td style="vertical-align: top; white-space: nowrap; padding-right: 10px; font-weight: bold; color: #d35400;">2. 작동조건</td>
+                    <td style="vertical-align: top; padding-bottom: 4px;">출발 후 <strong>30분 경과 시</strong> 작동합니다.</td>
+                </tr>
+                <tr>
+                    <td style="vertical-align: top; white-space: nowrap; padding-right: 10px; font-weight: bold; color: #d35400;">3. 인식범위</td>
+                    <td style="vertical-align: top; padding-bottom: 4px;">골인 지점 <strong>반경 <span class="radius-val">20</span>m 이내</strong> 진입 시 자동 감지.</td>
+                </tr>
+                <tr>
+                    <td style="vertical-align: top; white-space: nowrap; padding-right: 10px; font-weight: bold; color: #d35400;">4. 주의사항</td>
+                    <td style="vertical-align: top;">정확한 측정을 위해 <strong>화면을 끄지 마세요.</strong></td>
+                </tr>
+            </table>
         </div>
 
         <div class="card">
             <h2>🏁 선수 등록 및 추적</h2>
-            <div id="statusMessage" style="margin-bottom: 20px; font-size: 0.95rem; color: #34495e; background: #ecf0f1; padding: 15px; border-radius: 10px; line-height:1.5;">
+            <div id="statusMessage" style="font-size: 0.95rem; color: #34495e; background: #ecf0f1; padding: 15px; border-radius: 10px; line-height:1.5;">
                 배번을 입력하고 <br>
                 <strong>[위치 추적 시작]</strong>을 눌러주세요.
             </div>
