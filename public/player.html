@@ -5,48 +5,73 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>부천트라이 산악마라톤대회 - 자동골인</title>
     <style>
-        body { font-family: 'Pretendard', sans-serif; text-align: center; margin: 0; padding: 0; background: #f4f7f6; color: #333; }
+        :root {
+            --primary: #2c3e50;
+            --accent: #e67e22;
+            --bg: #f0f2f5;
+            --card-bg: #ffffff;
+            --text: #2d3436;
+            --shadow: 0 10px 25px rgba(0,0,0,0.1);
+        }
+        body { 
+            font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif;
+            background: var(--bg); color: var(--text);
+            margin: 0; padding: 20px;
+            display: flex; flex-direction: column; align-items: center; min-height: 100vh;
+        }
         
-        /* 최상단 공지사항 스타일 */
+        .main-container { width: 100%; max-width: 480px; }
+
+        h1 { 
+            font-size: 1.6rem; color: var(--primary); margin: 20px 0; 
+            text-align: center; font-weight: 800; letter-spacing: -0.5px;
+        }
+
         .notice-banner { 
-            background: #fff3cd; 
-            color: #856404; 
-            padding: 15px; 
-            border-bottom: 2px solid #ffeeba;
-            font-size: 0.95rem;
-            line-height: 1.5;
-            font-weight: bold;
+            background: #fff8e1; border-left: 5px solid #ffc107;
+            padding: 15px; border-radius: 12px;
+            font-size: 0.9rem; line-height: 1.6; color: #5d4037;
+            margin-bottom: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.05);
             text-align: left;
         }
-        .notice-banner span { color: #d63031; margin-bottom: 5px; font-size: 1.1rem; }
+        .notice-banner strong { color: #d35400; }
 
-        .content { padding: 30px 20px; }
-        .card { background: white; padding: 30px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        .card { 
+            background: var(--card-bg); padding: 30px 25px; 
+            border-radius: 20px; box-shadow: var(--shadow);
+            text-align: center; margin-bottom: 20px;
+        }
+        .card h2 { margin-top: 0; font-size: 1.4rem; color: var(--primary); }
         
-        input { font-size: 1.8rem; width: 80%; padding: 12px; margin: 20px 0; border: 2px solid #ddd; border-radius: 10px; text-align: center; }
-        input:focus { border-color: #e67e22; outline: none; }
+        input { 
+            font-size: 1.5rem; width: 100%; padding: 15px; margin: 20px 0; 
+            border: 2px solid #dfe6e9; border-radius: 12px; text-align: center; 
+            background: #fdfdfd; transition: 0.3s; box-sizing: border-box;
+        }
+        input:focus { border-color: var(--accent); outline: none; box-shadow: 0 0 0 4px rgba(230, 126, 34, 0.1); }
 
         .btn-start { 
-            background: #e67e22; color: white; padding: 18px 40px; border: none; 
-            border-radius: 50px; font-size: 1.3rem; font-weight: bold; cursor: pointer;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1); transition: 0.3s;
+            background: linear-gradient(135deg, #e67e22 0%, #d35400 100%);
+            color: white; padding: 16px; width: 100%; border: none; 
+            border-radius: 12px; font-size: 1.2rem; font-weight: bold; cursor: pointer;
+            box-shadow: 0 4px 15px rgba(230, 126, 34, 0.3); transition: transform 0.2s;
         }
-        .btn-start:disabled { background: #95a5a6; }
+        .btn-start:active { transform: scale(0.98); }
+        .btn-start:disabled { background: #b2bec3; cursor: not-allowed; box-shadow: none; }
 
-        #status { margin-top: 25px; font-size: 1.1rem; color: #7f8c8d; }
+        #status { margin-top: 20px; font-size: 1rem; color: #636e72; min-height: 24px; }
         .tracking-on { color: #27ae60; font-weight: bold; animation: blink 1.5s infinite; }
         @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
 
-        /* 모바일 반응형 스타일 */
-        @media (max-width: 768px) {
-            h1 { font-size: 1.1rem; margin: 15px 0; }
-            .notice-banner { font-size: 0.9rem; padding: 12px; text-align: left; }
-            .content { padding: 15px 10px; }
-            .card { padding: 20px 15px; }
-            #timerDisplay, #distNum { font-size: 2.8rem !important; }
-            .btn-start { padding: 15px 0; font-size: 1.1rem; width: 100%; }
-            input { width: 90%; font-size: 1.5rem; }
+        /* 대시보드 위젯 스타일 */
+        .widget-box {
+            background: var(--primary); color: white; padding: 25px; 
+            border-radius: 20px; margin-bottom: 15px; text-align: center;
+            box-shadow: var(--shadow);
         }
+        .widget-label { font-size: 0.9rem; opacity: 0.8; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 1px; }
+        .widget-value { font-size: 3rem; font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1.2; }
+        .widget-sub { font-size: 0.85rem; opacity: 0.7; margin-top: 5px; }
 
         /* [추가] 커스텀 알림/모달 스타일 */
         .toast-message {
@@ -90,43 +115,45 @@
     </style>
 </head>
 <body>
-    <h1 id="raceTitle">🏃 부천트라이 산악마라톤대회 자동골인</h1>
-    <div class="notice-banner">
-        <span>⚠️ 자동 골인 시스템 안내</span><br>
-        1. <strong>공식 기록 우선:</strong> GPX 기록은 보완용이며, 최종 순위는 <strong>심판의 수동 기록이 우선</strong>합니다.<br>
-        2. <strong>활성화 조건:</strong> 출발 버튼 입력 후 <strong>30분이 경과해야</strong> 자동 골인이 작동합니다.<br>
-        3. <strong>인식 범위:</strong> 골인 지점 <strong style="white-space: nowrap;">반경 <span class="radius-val">20</span>m 이내</strong> 진입 시 자동 감지됩니다.<br>
-        4. <strong>주의 사항:</strong> 정확한 측정을 위해 스마트폰의 <strong>화면을 끄지 말고</strong> 휴대해 주세요.
-    </div>
+    <div class="main-container">
+        <h1 id="raceTitle">🏃 부천트라이 산악마라톤대회</h1>
+        
+        <div class="notice-banner">
+            <strong>⚠️ 자동 골인 시스템 안내</strong><br>
+            1. <strong>공식 기록 우선:</strong> GPX 기록은 보완용이며, 최종 순위는 심판의 수동 기록이 우선합니다.<br>
+            2. <strong>활성화 조건:</strong> 출발 후 <strong>30분 경과 시</strong> 작동합니다.<br>
+            3. <strong>인식 범위:</strong> 골인 지점 <strong>반경 <span class="radius-val">20</span>m 이내</strong> 진입 시 자동 감지.<br>
+            4. <strong>주의:</strong> 정확한 측정을 위해 <strong>화면을 끄지 마세요.</strong>
+        </div>
 
-    <div class="content">
         <div class="card">
-        <h2>🏁 자동 체크인 대기</h2>
-            <div id="statusMessage" style="margin-bottom: 15px; font-size: 0.9rem; color: #2980b9; background: #ebf5fb; padding: 10px; border-radius: 8px;">
-                배번 입력 후 추적을 시작하면,<br><strong>출발 30분 후부터</strong> <span class="radius-val">20</span>m 반경 진입 시 골인 처리됩니다.
+            <h2>🏁 선수 등록 및 추적</h2>
+            <div id="statusMessage" style="margin-bottom: 20px; font-size: 0.95rem; color: #34495e; background: #ecf0f1; padding: 15px; border-radius: 10px; line-height:1.5;">
+                배번을 입력하고 <strong>[위치 추적 시작]</strong>을 눌러주세요.<br>
+                <span style="font-size:0.85rem; color:#7f8c8d;">(출발 30분 후부터 골인 지점 <span class="radius-val">20</span>m 접근 시 자동 완료)</span>
             </div>
 
-            <input type="number" id="bibNumber" placeholder="배번 입력" inputmode="numeric">
+            <input type="number" id="bibNumber" placeholder="배번 (예: 101)" inputmode="numeric">
             
-            <div style="margin: 20px 0; font-size: 0.85rem; color: #e74c3c;">
-                * 위치 추적 동의 시 위 안내 사항에 동의하는 것으로 간주합니다.
+            <button class="btn-start" id="startBtn" onclick="startTracking()">📡 위치 추적 시작</button>
+            
+            <div style="margin-top: 15px; font-size: 0.8rem; color: #95a5a6;">
+                * 버튼 클릭 시 위치 정보 수집에 동의하는 것으로 간주합니다.
             </div>
-
-            <button class="btn-start" id="startBtn" onclick="startTracking()">위치 추적 및 동의 시작</button>
             
             <div id="status">연결 대기 중...</div>
         </div>
-    </div>
   
-    <div id="timerBox" style="display:none; margin: 20px 0; padding: 20px; background: #2c3e50; color: #fff; border-radius: 15px;">
-        <div style="font-size: 1rem; color: #bdc3c7;">경과 시간</div>
-        <div id="timerDisplay" style="font-size: 3.5rem; font-weight: bold; font-variant-numeric: tabular-nums;">00:00:00</div>
-    </div>
+        <div id="timerBox" class="widget-box" style="display:none;">
+            <div class="widget-label">RACE TIME</div>
+            <div id="timerDisplay" class="widget-value">00:00:00</div>
+        </div>
 
-    <div id="distanceDisplay" style="display:none; margin: 20px 0; padding: 20px; background: #2c3e50; color: #f1c40f; border-radius: 15px;">
-        <div style="font-size: 1rem; color: #fff;">골인 지점까지 남은 거리</div>
-        <div style="font-size: 3.5rem; font-weight: bold;"><span id="distNum">--</span>m</div>
-        <div id="radiusGuide" style="font-size: 0.9rem; color: #bdc3c7; margin-top:5px;">(<span class="radius-val">20</span>m 이내 진입 시 자동 골인)</div>
+        <div id="distanceDisplay" class="widget-box" style="display:none; background: #34495e;">
+            <div class="widget-label">DISTANCE TO FINISH</div>
+            <div class="widget-value" style="color:#f1c40f;"><span id="distNum">--</span>m</div>
+            <div class="widget-sub">(<span class="radius-val">20</span>m 이내 진입 시 자동 골인)</div>
+        </div>
     </div>
 
     <!-- 커스텀 알림/모달 요소 -->
