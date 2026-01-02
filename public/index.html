@@ -231,6 +231,9 @@
     <script src="/socket.io/socket.io.js"></script>
     <script>
         const socket = io();
+        let raceStartTime = null;
+        let raceFinishTime = null; // [추가] 대회 종료 시간
+        let timerInterval = null;
 
         // [추가] 오디오 효과음 (Web Audio API)
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -280,10 +283,16 @@
         const isAdmin = localStorage.getItem('admin_access') === 'granted';
         if (isAdmin) {
             document.getElementById('finishBibInput').style.display = 'block';
-            document.getElementById('startBtn').style.display = 'inline-block';
+            if(raceStartTime==null){
+                document.getElementById('startBtn').style.display = 'inline-block';
+            }
             document.getElementById('logoutBtn').style.display = 'inline-block';
             document.getElementById('resetBtn').style.display = 'inline-block';
-            document.getElementById('finishBtn').style.display = 'inline-block';
+            if(raceFinishTime==null){
+                if(raceStartTime){
+                    document.getElementById('finishBtn').style.display = 'inline-block';
+                }
+            }
         } else {
             document.getElementById('finishBibInput').style.display = 'none';
             document.getElementById('startBtn').style.display = 'none';
@@ -347,9 +356,7 @@
             promptCallback = null;
         }
 
-        let raceStartTime = null;
-        let raceFinishTime = null; // [추가] 대회 종료 시간
-        let timerInterval = null;
+
 
         // 1. 대회 출발
         function startRace() {
@@ -489,6 +496,9 @@
                 btn.disabled = true; // 클릭 불가
                 btn.style.display = 'none'; // 또는 아예 숨김
                 btn.innerText = "대회 진행 중";
+                if (localStorage.getItem('admin_access') === 'granted') {
+                    document.getElementById('finishBtn').style.display = 'inline-block';//대회종료버튼 보임.
+                }
                 
                 // 2. 타이머 레이블 변경
                 document.getElementById('startTimeInfo').innerText = "출발 시각: " + raceStartTime.toLocaleTimeString();
