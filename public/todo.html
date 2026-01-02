@@ -144,6 +144,7 @@
             .todo-storage { 
                 flex-wrap: wrap; height: 180px; overflow-y: auto; align-content: flex-start; 
             }
+            .todo-storage .todo-item { width: auto; }
             .todo-item { margin: 2px; font-size: 0.9rem; padding: 8px 12px; }
         }
     </style>
@@ -212,7 +213,10 @@
 
     <div class="nav-btns">
         <button onclick="moveDate(-1)">&lt;</button>
-        <h2 id="dateRange">날짜 로딩 중...</h2>
+        <div style="display: flex; align-items: center; gap: 10px;">
+            <h2 id="dateRange" style="margin: 0;">날짜 로딩 중...</h2>
+            <button onclick="goToToday()" style="width: auto; height: 30px; font-size: 0.8rem; border-radius: 15px; padding: 0 10px;">Today</button>
+        </div>
         <button onclick="moveDate(1)">&gt;</button>
     </div>
 
@@ -236,9 +240,13 @@
 
 <script>
     const API_BASE = '/api/todo'; 
-    let currentDate = new Date(); // 현재 기준 날짜
+    // [수정] 저장된 날짜가 있으면 불러오고, 없으면 오늘 날짜 사용
+    const savedDate = localStorage.getItem('todoCurrentDate');
+    let currentDate = savedDate ? new Date(savedDate) : new Date();
+
     let daysToShow = 2; // 기본값 (PC)
     let isMomMode = false; // 엄마 로그인 상태
+    let activeChild = null; // [추가] 아이 선택 상태 (실수 방지용)
 
     // 페이지 로드 시 실행
     document.addEventListener('DOMContentLoaded', () => {
@@ -267,7 +275,15 @@
     function moveDate(direction) {
         // direction: -1 (이전), 1 (다음)
         currentDate.setDate(currentDate.getDate() + (direction * daysToShow));
+        localStorage.setItem('todoCurrentDate', currentDate.toISOString()); // 날짜 저장
         renderSchedule(); // 날짜가 바뀌었으니 그리드 다시 그리기
+    }
+
+    // [추가] 오늘 날짜로 바로 이동
+    function goToToday() {
+        currentDate = new Date();
+        localStorage.setItem('todoCurrentDate', currentDate.toISOString());
+        renderSchedule();
     }
 
     // 날짜 포맷 헬퍼 (YYYY-MM-DD) - 서버 전송용
@@ -278,7 +294,9 @@
 
     // 날짜 포맷 헬퍼 (M월 D일) - 화면 표시용
     function getDisplayDate(dateObj) {
-        return dateObj.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric' });
+        const dateStr = dateObj.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric' });
+        const dayNames = ['일', '월', '화', '수', '목', '금', '토'];
+        return `${dateStr} (${dayNames[dateObj.getDay()]})`;
     }
 
     // 그리드 전체 다시 그리기
@@ -315,9 +333,9 @@
                         <thead>
                             <tr>
                                 <th></th>
-                                <th class="child-header" style="background:#ff9f43">하람</th>
-                                <th class="child-header" style="background:#54a0ff">움찬</th>
-                                <th class="child-header" style="background:#5f27cd">태랑</th>
+                                <th class="child-header" style="background:#ff9f43; cursor:pointer;" onclick="setActiveChild('하람')">하람</th>
+                                <th class="child-header" style="background:#54a0ff; cursor:pointer;" onclick="setActiveChild('움찬')">움찬</th>
+                                <th class="child-header" style="background:#5f27cd; cursor:pointer;" onclick="setActiveChild('태랑')">태랑</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -373,14 +391,28 @@
                 animation: 150,
                 delay: 100, // 모바일 터치 인식을 위해 약간의 지연 추가
                 delayOnTouchOnly: true,
+                onMove: function (evt) {
+                    // [추가] 선택된 아이가 있을 경우 다른 아이 슬롯 진입 차단
+                    if (activeChild) {
+                        const targetChild = evt.to.parentElement.dataset.child;
+                        if (targetChild && targetChild !== activeChild) return false;
+                    }
+                },
                 onAdd: async function (evt) {
+                    const parentTd = evt.to.parentElement; 
+                    const child = parentTd.dataset.child;
+
+                    // [추가] 비활성화된 슬롯(다른 아이)에 드롭 시 차단
+                    if (activeChild && activeChild !== child) {
+                        evt.item.remove(); // 잘못 들어온 아이템 제거
+                        return;
+                    }
+
                     const item = evt.item;
                     const masterId = item.dataset.id;
                     // [수정] 아이템에 저장된 duration(지속시간) 가져오기 (기본값 1)
                     const duration = item.dataset.duration || 1; 
                     
-                    const parentTd = evt.to.parentElement; 
-                    const child = parentTd.dataset.child;
                     const time = parentTd.dataset.time;
                     const date = parentTd.dataset.date;
 
@@ -411,6 +443,8 @@
                             const success = await updatePlan(planId, date, time);
                             if (!success) {
                                 fromList.insertBefore(item, fromList.children[evt.oldIndex] || null);
+                            } else {
+                                renderSchedule(); // 위치/너비 재조정을 위해 화면 갱신
                             }
                         }
                     }
@@ -490,12 +524,58 @@
                         showMobileMenu(e, p.id, p.isCompleted, div);
                     } else {
                         // 일반 모드에선 삭제 확인만
-                        if(confirm("이 할 일을 삭제할까요?")) deletePlan(p.id, div);
+                        deletePlan(p.id, div);
+                    }
+                });
+
+                // [추가] PC 클릭 이벤트 (엄마모드 별 주기)
+                div.addEventListener('click', (e) => {
+                    if (isMomMode) {
+                        toggleComplete(p.id, !p.isCompleted);
                     }
                 });
 
                 slot.appendChild(div);
             }
+        });
+
+        // [추가] 같은 시간대 겹치는 일정 너비/위치 조정
+        document.querySelectorAll('.slot-inner').forEach(slot => {
+            const items = slot.querySelectorAll('.todo-item');
+            if (items.length > 0) {
+                const width = 100 / items.length;
+                items.forEach((item, idx) => {
+                    item.style.width = `${width}%`;
+                    item.style.left = `${width * idx}%`;
+                });
+            }
+        });
+        updateSlotStates(); // [추가] 상태 적용
+    }
+
+    // [추가] 아이 이름 클릭 시 해당 아이 슬롯만 활성화
+    function setActiveChild(name) {
+        if (activeChild === name) {
+            activeChild = null; // 토글 해제 (전체 활성화)
+        } else {
+            activeChild = name;
+        }
+        updateSlotStates();
+    }
+
+    function updateSlotStates() {
+        const isSelected = (name) => !activeChild || activeChild === name;
+
+        // 1. 헤더 스타일 (투명도 조절)
+        document.querySelectorAll('.child-header').forEach(th => {
+            th.style.opacity = isSelected(th.innerText.trim()) ? '1' : '0.2';
+        });
+
+        // 2. 슬롯 비활성화 (클릭/드롭 방지)
+        document.querySelectorAll('.child-slot').forEach(td => {
+            const enabled = isSelected(td.dataset.child);
+            td.style.opacity = enabled ? '1' : '0.2';
+            td.style.pointerEvents = enabled ? 'auto' : 'none';
         });
     }
 
@@ -672,10 +752,13 @@
         // 첫 번째 컬럼의 행 개수(시간 슬롯 수)를 기준으로 반복
         const rowCount = columns[0].querySelectorAll('tbody tr').length;
         
+        // [추가] 진행 중인 긴 할 일 추적용 (Key: 열 인덱스, Value: 남은 시간)
+        const ongoingTasks = {}; 
+        
         for (let i = 0; i < rowCount; i++) {
             const rowData = [];
             
-            columns.forEach(col => {
+            columns.forEach((col, colIdx) => {
                 const tr = col.querySelectorAll('tbody tr')[i];
                 const slots = tr.querySelectorAll('.child-slot');
                 // 시간 텍스트 (화면에 보이는 값 사용)
@@ -684,11 +767,37 @@
                 rowData.push(timeText);
                 
                 // 하람, 움찬, 태랑 순서대로 할 일 텍스트 추출
-                slots.forEach(slot => {
-                    const items = Array.from(slot.querySelectorAll('.todo-item'))
-                                       .map(item => item.innerText.replace('❌', '').trim()) // 삭제 버튼 텍스트 제거
-                                       .join(', ');
-                    rowData.push(items);
+                slots.forEach((slot, slotIdx) => {
+                    // 현재 엑셀 상의 열 인덱스 (시간 열 포함: 날짜인덱스*4 + 1(시간) + 슬롯인덱스)
+                    const currentExcelColIdx = colIdx * 4 + 1 + slotIdx;
+
+                    if (ongoingTasks[currentExcelColIdx] && ongoingTasks[currentExcelColIdx] > 0) {
+                        rowData.push(""); // 병합될 것이므로 빈 값
+                        ongoingTasks[currentExcelColIdx]--;
+                    } else {
+                        const items = Array.from(slot.querySelectorAll('.todo-item'));
+                        if (items.length > 0) {
+                            const texts = items.map(item => item.innerText.replace('❌', '').trim());
+                            rowData.push(texts.join(', '));
+
+                            // 가장 긴 duration 찾기
+                            let maxDuration = 1;
+                            items.forEach(item => {
+                                const d = parseInt(item.dataset.duration || "1", 10);
+                                if (d > maxDuration) maxDuration = d;
+                            });
+
+                            if (maxDuration > 1) {
+                                ongoingTasks[currentExcelColIdx] = maxDuration - 1;
+                                merges.push({
+                                    s: { r: i + 2, c: currentExcelColIdx },
+                                    e: { r: i + 2 + maxDuration - 1, c: currentExcelColIdx }
+                                });
+                            }
+                        } else {
+                            rowData.push("");
+                        }
+                    }
                 });
             });
             data.push(rowData);
