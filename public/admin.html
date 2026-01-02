@@ -96,7 +96,7 @@
     </style>
 </head>
 <body>
-    <h1 id="raceTitle">🏃 부천트라이 산악마라톤대회 관리자</h1>
+    <h1 id="raceTitle">🏃부천트라이 산악마라톤대회 관리자</h1>
 
     <div class="controls">
         <button class="btn btn-home" onclick="location.href='/'">🏠 전광판으로</button>
@@ -182,8 +182,8 @@
     <script>
         const socket = io();
         const currentYear = new Date().getFullYear();
-        document.title = `${currentYear} 부천트라이 산악마라톤대회 - 관리자`;
-        document.getElementById('raceTitle').innerText = `🏃 ${currentYear} 부천트라이 산악마라톤대회 - 관리자`;
+        document.title = `${currentYear} 부천트라이 산악마라톤대회-관리자`;
+        document.getElementById('raceTitle').innerText = `🏃${currentYear} 부천트라이 산악마라톤대회-관리자`;
         // 구글 지도 관련 변수 및 함수
         let map, marker;
         let savedFinishLine = { lat: 37.503, lng: 126.795 }; // 기본값

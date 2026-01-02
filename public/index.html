@@ -119,7 +119,7 @@
     </style>
 </head>
 <body>
-    <h1 id="raceTitle">🏃 부천트라이 산악마라톤대회</h1>
+    <h1 id="raceTitle">🏃부천트라이 산악마라톤대회</h1>
     <div class="timer-box">
         <div class="info-text">경과 시간</div>
         <div id="timerDisplay">READY</div>
@@ -135,7 +135,7 @@
         </div>
     </div>
 
-    <div class="input-box" style="margin-top:10px; background:#edf2f7;">
+    <div class="input-box" style="margin-top:10px; background:#fff3cd;">
         <strong>📡 GPX인식 자동골인 반경: </strong>
         <span id="currentRadiusInfo" style="font-weight:bold; color:#2c3e50;">20m</span>
     </div>
@@ -144,7 +144,7 @@
         <h3>🏁 완주배번 입력후 Enter</h3>
         <input type="number" id="bibInput" inputmode="numeric" placeholder="000">
         <p style="font-size: 0.85rem; color: #555; margin-top: 10px; line-height: 1.4; word-break: keep-all;">
-            [심판은 선수와 다른심판이 들을수 있게 "몇번완주" 라고 외치면서 엔터합시다. 심판은 귀를 열고 서로 다른 배번완주처리를 할수 있도록 합시다.]
+            [심판은 선수와 다른심판이 들을수 있게 "몇번완주" 라고 외치면서 엔터합시다. 심판은 귀를 열고 서로 다른 배번 완주처리를 할 수 있도록 합시다.]
         </p>
     </div>
 
@@ -159,11 +159,11 @@
 
         <div class="rank-container">
             <div class="rank-card">
-                <div class="rank-header senior-header">🏃‍♂️ 남자 장년부 (~78년)</div>
+                <div class="rank-header senior-header">🏃‍♂️ 남자 장년부 (<span id="seniorYearText"></span>)</div>
                 <table><tbody id="seniorList"></tbody></table>
             </div>
             <div class="rank-card">
-                <div class="rank-header junior-header">🏃‍♂️ 남자 청년부 (79년~)</div>
+                <div class="rank-header junior-header">🏃‍♂️ 남자 청년부 (<span id="juniorYearText"></span>)</div>
                 <table><tbody id="juniorList"></tbody></table>
             </div>
             <div class="rank-card">
@@ -268,7 +268,7 @@
         // [자동 설정] 현재 연도 적용
         const currentYear = new Date().getFullYear();
         document.title = `${currentYear} 부천트라이 산악마라톤대회`;
-        document.getElementById('raceTitle').innerText = `🏃 ${currentYear} 부천트라이 산악마라톤대회`;
+        document.getElementById('raceTitle').innerText = `🏃${currentYear} 부천트라이 산악마라톤대회`;
 
         // [보안] 관리자 비밀번호 (서버에서 수신)
         let adminPassword = "LOADING"; 
@@ -452,11 +452,24 @@
 
         socket.on('current_settings', (data) => {
             if(data.goalRadius) document.getElementById('currentRadiusInfo').innerText = `${data.goalRadius}m`;
+            if(data.seniorYear) updateYearDisplay(data.seniorYear);
         });
 
         socket.on('radius_changed', (val) => {
             document.getElementById('currentRadiusInfo').innerText = `${val}m`;
         });
+
+        // [추가] 설정 변경 실시간 반영
+        socket.on('settings_changed', (data) => {
+            if(data.seniorYear) updateYearDisplay(data.seniorYear);
+        });
+
+        function updateYearDisplay(year) {
+            const yy = String(year).slice(-2);
+            const nextYy = String(year + 1).slice(-2);
+            document.getElementById('seniorYearText').innerText = `~${yy}년`;
+            document.getElementById('juniorYearText').innerText = `${nextYy}년~`;
+        }
 
         // 서버로부터 리셋 완료 신호를 받으면 화면 새로고침
         socket.on('race_reset_complete', () => {
