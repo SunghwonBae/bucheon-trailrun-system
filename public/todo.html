@@ -154,18 +154,21 @@
             }
             .todo-storage .todo-item { width: auto; }
             .todo-item { margin: 2px; font-size: 0.9rem; padding: 8px 12px; }
+
+            /* [추가] 모바일에서는 삭제 아이콘 숨김 (드래그로 삭제) */
+            .todo-item:hover .btn-delete-plan { display: none !important; }
         }
 
         /* [추가] 휴지통 스타일 */
         .trash-drop-zone {
             position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%);
-            width: 220px; height: 70px;
+            width: 300px; height: 100px;
             background: #ff7675; color: white;
-            border-radius: 35px;
+            border-radius: 50px;
             display: flex; justify-content: center; align-items: center; gap: 10px;
-            font-size: 1.2rem; font-weight: bold;
+            font-size: 1.5rem; font-weight: bold;
             box-shadow: 0 5px 20px rgba(0,0,0,0.3);
-            z-index: 3000;
+            z-index: 9999;
             opacity: 0; pointer-events: none; transition: opacity 0.3s, transform 0.2s;
         }
         .trash-drop-zone.active { opacity: 1; pointer-events: auto; }
@@ -507,6 +510,9 @@
                 onMove: function (evt) {
                     // [추가] 선택된 아이가 있을 경우 다른 아이 슬롯 진입 차단
                     if (activeChild) {
+                        // [안전장치] 휴지통은 무조건 허용
+                        if (evt.to.id === 'trashCan') return true;
+
                         const targetChild = evt.to.parentElement.dataset.child;
                         if (targetChild && targetChild !== activeChild) return false;
                     }
@@ -641,11 +647,21 @@
                     renderSchedule();
                     loadMasters();
                 });
+                if (planId) {
+                    // 일정 삭제
+                    await fetch(`${API_BASE}/plans/${planId}`, { method: 'DELETE' });
+                } else if (masterId) {
+                    // 보물창고 아이템 삭제
+                    await fetch(`${API_BASE}/masters/${masterId}`, { method: 'DELETE' });
+                    loadMasters(); 
+                }
+                item.remove(); 
             }
         });
     }
 
     function toggleTrash(show) {
+        if (isMomMode) return; // [추가] 엄마 모드에서는 휴지통 비활성화 (팝업 메뉴 사용)
         const el = document.getElementById('trashCan');
         if(show) el.classList.add('active');
         else el.classList.remove('active');
