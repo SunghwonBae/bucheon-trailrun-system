@@ -299,10 +299,14 @@ io.on('connection', async (socket) => {
                 
                 if (!runner.finishTime) {
                     // 기록 저장
-                    await prisma.trailRunner.update({
+                    const updatedRunner = await prisma.trailRunner.update({
                         where: { id: runner.id },
                         data: { finishTime: new Date() } // 공식 기록 필드에 저장
                     });
+
+                    // [추가] 완주 알림 전송 (UI 팝업/토스트용) - update_ui와 분리하여 이벤트 발송
+                    io.emit('runner_finished', updatedRunner);
+
                     const newData = await getRaceData();
                     io.emit('update_ui', newData);
 
