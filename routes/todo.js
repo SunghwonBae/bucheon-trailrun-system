@@ -18,9 +18,9 @@ router.get('/masters', async (req, res) => {
 
 // 2. 새로운 Todo 항목 생성 (엄마용)
 router.post('/masters', async (req, res) => {
-    const { title, color } = req.body;
+    const { title, color, duration } = req.body;
     const newMaster = await prisma.todoMaster.create({
-        data: { title, color }
+        data: { title, color ,   duration: Number(duration) || 1  }
     });
     res.json(newMaster);
 });
@@ -37,13 +37,14 @@ router.get('/plans', async (req, res) => {
 
 // 4. 일정 배치 (저장)
 router.post('/plans', async (req, res) => {
-    const { todoMasterId, childName, planDate, timeSlot } = req.body;
+    const { todoMasterId, childName, planDate, timeSlot, duration } = req.body;
     const plan = await prisma.todoPlan.create({
         data: { 
             todoMasterId: Number(todoMasterId), 
             childName, 
             planDate, 
-            timeSlot 
+            timeSlot,
+            duration: Number(duration) || 1 // duration 추가 
         }
     });
     res.json(plan);

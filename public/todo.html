@@ -16,10 +16,6 @@
             background: white; padding: 20px; border-radius: 20px; box-shadow: 0 10px 0 #ddd;
             display: flex; gap: 10px; margin-bottom: 30px; border: 3px solid #3498db;
         }
-        .todo-item { 
-            padding: 10px 20px; border-radius: 15px; cursor: grab; font-weight: bold;
-            box-shadow: 0 4px 0 rgba(0,0,0,0.1); transition: transform 0.2s;
-        }
         .todo-item:active { cursor: grabbing; transform: translateY(4px); }
         
         /* 마스터 삭제 버튼 */
@@ -82,6 +78,62 @@
         }
         .modal-btns button:active { transform: translateY(3px); box-shadow: none; }
 
+        /* 할 일 아이템 스타일 수정 */
+        .todo-item { 
+            position: relative; /* 삭제 버튼 등을 위해 */
+            width: 100%;
+            z-index: 10;
+            margin-bottom: 2px;
+            font-size: 0.85rem;
+            min-height: 35px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            border-radius: 8px;
+        }
+
+        /* 기간에 따른 높이 설정 (30분당 약 50px) */
+        .todo-item[data-duration="2"] { height: calc(100px - 4px); z-index: 20; }
+        .todo-item[data-duration="3"] { height: calc(150px - 4px); z-index: 20; }
+        /* ... 필요한 만큼 추가 또는 JS에서 동적 계산 */
+
+        .btn-delete-plan {
+            position: absolute;
+            top: -5px;
+            right: -5px;
+            width: 20px;
+            height: 20px;
+            background: #ff7675;
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            cursor: pointer;
+            border: 2px solid white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            display: none; /* 기본적으로 숨김 */
+        }
+
+        /* 마우스를 올렸을 때만 삭제 버튼 표시 (PC용) */
+        .todo-item:hover .btn-delete-plan {
+            display: flex;
+        }
+
+        /* 모바일용 컨텍스트 메뉴 */
+        .mobile-menu {
+            position: fixed; background: white; border-radius: 15px;
+            box-shadow: 0 0 20px rgba(0,0,0,0.2); display: none;
+            flex-direction: column; z-index: 2000; overflow: hidden;
+        }
+        .mobile-menu button {
+            padding: 15px 25px; border: none; background: white;
+            font-weight: bold; border-bottom: 1px solid #eee;
+        }
+        .mobile-menu button.del { color: #e74c3c; }
+
         @media (max-width: 768px) {
             .day-column { min-width: 100%; }
             /* [추가] 모바일에서 버튼 크기 축소 및 정렬 */
@@ -119,14 +171,35 @@
                 <input type="text" id="newTodoTitle" placeholder="예: 독서, 피아노, 줄넘기">
             </div>
             <div class="input-group">
-                <label>색상:</label>
-                <div class="color-options">
+                <label>소요 시간:</label>
+                <select id="newTodoDuration" style="width:100%; padding:10px; border-radius:10px;">
+                    <option value="1">30분</option>
+                    <option value="2">1시간</option>
+                    <option value="3">1시간 30분</option>
+                    <option value="4">2시간</option>
+                    <option value="5">2시간 30분</option>
+                    <option value="6">3시간</option>
+                    <option value="7">3시간 30분</option>
+                    <option value="8">4시간</option>
+                    <option value="9">4시간 30분</option>
+                    <option value="10">5시간</option>
+                </select>
+            </div>
+            <div class="input-group">
+                <label>색상 선택:</label>
+                <div class="color-options" style="display: grid; grid-template-columns: repeat(6, 1fr); gap: 5px;">
                     <div class="color-circle selected" style="background:#ff7675" onclick="selectColor(this)"></div>
                     <div class="color-circle" style="background:#74b9ff" onclick="selectColor(this)"></div>
                     <div class="color-circle" style="background:#55efc4" onclick="selectColor(this)"></div>
                     <div class="color-circle" style="background:#fab1a0" onclick="selectColor(this)"></div>
                     <div class="color-circle" style="background:#a29bfe" onclick="selectColor(this)"></div>
                     <div class="color-circle" style="background:#ffeaa7" onclick="selectColor(this)"></div>
+                    <div class="color-circle" style="background:#fdcb6e" onclick="selectColor(this)"></div>
+                    <div class="color-circle" style="background:#e84393" onclick="selectColor(this)"></div>
+                    <div class="color-circle" style="background:#00cec9" onclick="selectColor(this)"></div>
+                    <div class="color-circle" style="background:#6c5ce7" onclick="selectColor(this)"></div>
+                    <div class="color-circle" style="background:#b2bec3" onclick="selectColor(this)"></div>
+                    <div class="color-circle" style="background:#2d3436" onclick="selectColor(this)"></div>
                 </div>
                 <input type="hidden" id="selectedColor" value="#ff7675">
             </div>
@@ -298,55 +371,49 @@
             new Sortable(slot, {
                 group: 'shared',
                 animation: 150,
-                delay: 100, // [추가] 모바일 터치 시 드래그 지연 (클릭 허용)
+                delay: 100, // 모바일 터치 인식을 위해 약간의 지연 추가
                 delayOnTouchOnly: true,
                 onAdd: async function (evt) {
-                    const item = evt.item;          // 드롭된 아이템
-                    const masterId = item.dataset.id; // 엄마의 할일 ID
+                    const item = evt.item;
+                    const masterId = item.dataset.id;
+                    // [수정] 아이템에 저장된 duration(지속시간) 가져오기 (기본값 1)
+                    const duration = item.dataset.duration || 1; 
                     
-                    // 드롭된 위치 정보 파악
                     const parentTd = evt.to.parentElement; 
                     const child = parentTd.dataset.child;
                     const time = parentTd.dataset.time;
-                    const date = parentTd.dataset.date; // 아까 넣어둔 날짜 속성
+                    const date = parentTd.dataset.date;
 
-                    // [수정] 출처에 따라 분기 처리
                     const fromList = evt.from;
 
-                    // 1. 보물창고(Master)에서 온 경우 -> 신규 저장
+                    // 1. 보물창고에서 온 경우 -> 신규 저장 (duration 포함)
                     if (fromList.id === 'masterTodos') {
-                        console.log(`신규 저장: ${child}, ${date}, ${time}`);
-                        const saved = await savePlan(masterId, child, date, time);
-                        if(saved) item.dataset.planId = saved.id;
+                        // [수정] savePlan 호출 시 duration 인자 추가
+                        const saved = await savePlan(masterId, child, date, time, duration);
+                        if(saved) {
+                            item.dataset.planId = saved.id;
+                            renderSchedule(); // 높이 조절 등을 위해 화면 새로고침
+                        }
                     } 
-                    // 2. 다른 시간대에서 이동한 경우 -> 수정 (Update)
+                    // 2. 다른 시간대에서 이동한 경우 (Update)
                     else {
                         const fromParentTd = fromList.parentElement;
                         const fromChild = fromParentTd.dataset.child;
 
-                        // (1) 다른 사람에게 이동하려고 하면 차단
                         if (fromChild !== child) {
-                            alert("옆으로 다른 사람에게 옮기는건 불가능합니다.");
-                            // 원래 위치로 복구
+                            alert("다른 사람에게 옮길 수 없습니다.");
                             fromList.insertBefore(item, fromList.children[evt.oldIndex] || null);
                             return;
                         }
 
-                        // (2) 같은 사람, 다른 시간대로 이동 -> DB 업데이트
                         const planId = item.dataset.planId;
                         if (planId) {
                             const success = await updatePlan(planId, date, time);
                             if (!success) {
-                                alert("저장 실패! 원래대로 되돌립니다.");
                                 fromList.insertBefore(item, fromList.children[evt.oldIndex] || null);
                             }
                         }
                     }
-                    
-                },
-                // 아이템을 밖으로 빼면 삭제 (선택 사항)
-                onRemove: function (evt) {
-                    // 다른 슬롯으로 이동한게 아니라 아예 목록 밖으로 버렸을 때 처리 로직 필요 시 추가
                 }
             });
         });
@@ -363,12 +430,16 @@
             const masters = await res.json();
             const container = document.getElementById('masterTodos');
             
+            // [수정] data-duration 속성을 추가하여 드래그 시 참조할 수 있게 함
             container.innerHTML = masters.map(m => `
-                <div class="todo-item" style="background: ${m.color};" data-id="${m.id}">
+                <div class="todo-item" 
+                    style="background: ${m.color};" 
+                    data-id="${m.id}" 
+                    data-duration="${m.duration || 1}"> 
                     ${m.title}
                     <span class="btn-del-master" onclick="deleteMaster(event, ${m.id})">❌</span>
-                </div>`
-            ).join('');
+                </div>
+            `).join('');
 
             // 엄마 창고 Sortable (복제 모드)
             new Sortable(container, {
@@ -380,56 +451,107 @@
         } catch(err) { console.error(err); }
     }
 
-    // 배치된 일정 불러와서 화면에 뿌리기
+        // 모바일 메뉴 제어 변수
+    let selectedPlanElement = null;
+
+    // [개선] 플랜 로드 시 렌더링 로직
     async function loadPlans(startDate, endDate) {
-        try {
-            const res = await fetch(`${API_BASE}/plans?startDate=${startDate}&endDate=${endDate}`);
-            const plans = await res.json();
+        const res = await fetch(`${API_BASE}/plans?startDate=${startDate}&endDate=${endDate}`);
+        const plans = await res.json();
+        plans.forEach(p => {
+            const selector = `.child-slot[data-date="${p.planDate}"][data-child="${p.childName}"][data-time="${p.timeSlot}"] .slot-inner`;
+            const slot = document.querySelector(selector);
+            
+            if(slot) {
+                const div = document.createElement('div');
+                div.className = 'todo-item';
+                div.style.background = p.todoMaster.color;
+                div.style.height = (p.duration * 50 - 4) + "px"; // 30분당 50px 계산
+                div.style.position = "absolute"; // 겹침 허용을 위해 absolute
+                div.style.top = "2px";
+                div.innerText = (p.isCompleted ? "★ " : "") + p.todoMaster.title;
+                div.dataset.planId = p.id;
+                div.dataset.duration = p.duration;
 
-            plans.forEach(p => {
-                // 정확한 위치(날짜 + 아이 + 시간) 찾기
-                const selector = `.child-slot[data-date="${p.planDate}"][data-child="${p.childName}"][data-time="${p.timeSlot}"] .slot-inner`;
-                const slot = document.querySelector(selector);
-                
-                if(slot) {
-                    const div = document.createElement('div');
-                    div.className = 'todo-item';
-                    div.style.background = p.todoMaster.color;
-                    // 완료(별) 표시 처리
-                    div.innerText = (p.isCompleted ? "★ " : "") + p.todoMaster.title;
-                    div.dataset.planId = p.id;
+                // [추가] 삭제 버튼(X) 생성
+                const delBtn = document.createElement('div');
+                delBtn.className = 'btn-delete-plan';
+                delBtn.innerText = '✕';
+                delBtn.onclick = (e) => {
+                    e.stopPropagation(); // 부모 클릭 이벤트 전파 방지
+                    deletePlan(p.id, div);
+                };
+                div.appendChild(delBtn);
 
-                    // [추가] 엄마 모드일 때 클릭 시 별 토글
-                    div.onclick = function() {
-                        if (isMomMode) toggleComplete(p.id, !p.isCompleted);
-                    };
-                    
-                    // 삭제 기능 (더블 클릭 시 삭제)
-                    div.ondblclick = function() { deletePlan(p.id, div); };
+                // [핵심] 모바일 터치 이벤트 (엄마모드 별/삭제 메뉴)
+                div.addEventListener('touchend', (e) => {
+                    e.preventDefault();
+                    if (isMomMode) {
+                        showMobileMenu(e, p.id, p.isCompleted, div);
+                    } else {
+                        // 일반 모드에선 삭제 확인만
+                        if(confirm("이 할 일을 삭제할까요?")) deletePlan(p.id, div);
+                    }
+                });
 
-                    // [추가] 모바일: 길게 눌러서 삭제 (Long Press)
-                    let pressTimer;
-                    div.addEventListener('touchstart', function() {
-                        pressTimer = setTimeout(() => {
-                            deletePlan(p.id, div);
-                        }, 500); 
-                    }, {passive: true});
-                    div.addEventListener('touchend', () => clearTimeout(pressTimer));
-                    div.addEventListener('touchmove', () => clearTimeout(pressTimer));
-                    
-                    slot.appendChild(div);
-                }
-            });
-        } catch(err) { console.error("일정 로드 실패:", err); }
+                slot.appendChild(div);
+            }
+        });
     }
 
+    // 모바일용 퀵 메뉴 띄우기
+    function showMobileMenu(e, planId, currentStatus, element) {
+        // 기존 메뉴 있으면 제거
+        const oldMenu = document.getElementById('mobileMenu');
+        if(oldMenu) oldMenu.remove();
+
+        const menu = document.createElement('div');
+        menu.id = 'mobileMenu';
+        menu.className = 'mobile-menu';
+        menu.style.display = 'flex';
+        menu.style.left = '50%';
+        menu.style.top = '50%';
+        menu.style.transform = 'translate(-50%, -50%)';
+
+        menu.innerHTML = `
+            <button onclick="handleToggleComplete(${planId}, ${!currentStatus})">
+                ${currentStatus ? '☆ 별 빼기' : '★ 별 주기'}
+            </button>
+            <button class="del" onclick="handleDeletePlan(${planId})">🗑️ 삭제하기</button>
+            <button onclick="this.parentElement.remove()">취소</button>
+        `;
+        document.body.appendChild(menu);
+        selectedPlanElement = element;
+    }
+
+    // 메뉴 핸들러
+    async function handleToggleComplete(id, status) {
+        await toggleComplete(id, status);
+        document.getElementById('mobileMenu').remove();
+    }
+
+    async function handleDeletePlan(id) {
+        if(confirm("정말 삭제할까요?")) {
+            await fetch(`${API_BASE}/plans/${id}`, { method: 'DELETE' });
+            selectedPlanElement.remove();
+            document.getElementById('mobileMenu').remove();
+        }
+    }
+
+
     // 일정 저장 API
-    async function savePlan(masterId, child, date, time) {
+    async function savePlan(masterId, child, date, time, duration) {
         try {
             const res = await fetch(`${API_BASE}/plans`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ todoMasterId: masterId, childName: child, planDate: date, timeSlot: time })
+                body: JSON.stringify({ 
+                    todoMasterId: masterId, 
+                    childName: child, 
+                    planDate: date, 
+                    timeSlot: time,
+                    duration: duration // 몇 칸(30분 단위)을 차지하는지 전송
+                })
             });
             const data = await res.json();
             return data;
@@ -589,12 +711,13 @@
     async function saveNewMaster() {
         const title = document.getElementById('newTodoTitle').value;
         const color = document.getElementById('selectedColor').value;
+        const duration = document.getElementById('newTodoDuration').value;
         if (!title) return alert("이름을 입력하세요");
 
         await fetch(`${API_BASE}/masters`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ title, color })
+            body: JSON.stringify({ title, color , duration})
         });
         
         closeModal();
