@@ -345,6 +345,33 @@ io.on('connection', async (socket) => {
         }
     });
 
+    // [추가] 완주 기록 취소 (음성인식)
+    socket.on('cancel_runner_finish', async (bibNumber) => {
+        try {
+            const runner = await prisma.trailRunner.findFirst({
+                where: { bibNumber: String(bibNumber), createdAt: yearCondition }
+            });
+
+            if (runner) {
+                if (runner.finishTime) {
+                    await prisma.trailRunner.update({
+                        where: { id: runner.id },
+                        data: { finishTime: null }
+                    });
+                    const newData = await getRaceData();
+                    io.emit('update_ui', newData);
+                    socket.emit('error_msg', `${bibNumber}번 완주 기록이 취소되었습니다.`);
+                } else {
+                    socket.emit('error_msg', '완주 기록이 없는 선수입니다.');
+                }
+            } else {
+                socket.emit('error_msg', '배번을 확인해주세요.');
+            }
+        } catch (err) {
+            console.error(err);
+        }
+    });
+
     /**
      * 선수가 출발후 30분이 지나서 골인반경 20m 내에 들어오면 자동골인처리
      */

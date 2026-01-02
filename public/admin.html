@@ -296,6 +296,10 @@
             }
         });
 
+        // [추가] UI 업데이트 수신 시 목록 갱신 및 에러 메시지 처리
+        socket.on('update_ui', () => fetchRunners());
+        socket.on('error_msg', (msg) => showToast(msg));
+
         function updateMapLocation(pos) {
             savedFinishLine = pos;
             if (map && marker) {
@@ -370,7 +374,10 @@
                             <option value="F" ${r.paymentStatus==='F'?'selected':''}>F (무료)</option>
                         </select>
                     </td>
-                    <td>${recordStr}</td> 
+                    <td>
+                        ${recordStr}
+                        ${r.finishTime ? `<button onclick="cancelFinish('${r.bibNumber}')" style="margin-left:5px; color:red; border:none; background:none; cursor:pointer; font-weight:bold;" title="기록 취소">X</button>` : ''}
+                    </td> 
                     <td>
                         <span id="print-count-${r.id}">${r.printCount}</span>회
                         ${r.finishTime ? 
@@ -415,6 +422,13 @@
             
             window.open(`/certificate_single.html?bib=${bib}`, 'CertificateWindow', 
                 `width=${width},height=${height},top=${top},left=${left},scrollbars=yes,resizable=yes`);
+        }
+
+        // [추가] 완주 기록 취소 요청
+        function cancelFinish(bib) {
+            showConfirm(`${bib}번 선수의 완주 기록을 삭제하시겠습니까?`, () => {
+                socket.emit('cancel_runner_finish', bib);
+            });
         }
 
         // 기록 초기화 (3가지 칼럼 통합 삭제)

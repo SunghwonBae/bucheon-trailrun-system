@@ -142,9 +142,13 @@
 
     <div id="finishBibInput" class="input-box" style="display: none;">
         <h3>🏁 완주배번 입력후 Enter</h3>
-        <input type="number" id="bibInput" inputmode="numeric" placeholder="000">
+        <div style="display: flex; justify-content: center; align-items: center; gap: 10px;">
+            <input type="number" id="bibInput" inputmode="numeric" placeholder="000">
+            <button id="micBtn" style="font-size: 1.5rem; padding: 10px; border-radius: 50%; border: none; background: #bdc3c7; cursor: pointer;" title="음성인식 켜기/끄기">🎤</button>
+        </div>
+        <div id="voiceStatus" style="font-size: 0.9rem; color: #e74c3c; margin-top: 5px; min-height: 1.2em; font-weight: bold;"></div>
         <p style="font-size: 0.85rem; color: #555; margin-top: 10px; line-height: 1.4; word-break: keep-all;">
-            [심판은 선수와 다른심판이 들을수 있게 "몇번완주" 라고 외치면서 엔터합시다. 심판은 귀를 열고 서로 다른 배번 완주처리를 할 수 있도록 합시다.]
+            [음성인식 골인은 "101번 완주"로 완주처리하고, 잘못된 음성인식이나 실수한것 지울때는 "101번 취소"로 합니다.]
         </p>
     </div>
 
@@ -540,6 +544,83 @@
                 bibInput.value = '';
             }
         });
+
+        // [추가] 음성 인식 기능 (Web Speech API)
+        const micBtn = document.getElementById('micBtn');
+        const voiceStatus = document.getElementById('voiceStatus');
+        const voiceBanner = document.getElementById('voiceStatusBanner');
+        let isVoiceActive = false;
+        let recognition = null;
+
+        if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            recognition = new SpeechRecognition();
+            recognition.lang = 'ko-KR';
+            recognition.continuous = true; // 지속적 인식
+            recognition.interimResults = false;
+            
+            // 관리자라면 배너 표시 및 여백 확보
+            if (localStorage.getItem('admin_access') === 'granted') {
+                voiceBanner.style.display = 'block';
+                document.body.style.paddingTop = '50px';
+            }
+
+            recognition.onstart = () => {
+                isVoiceActive = true;
+                micBtn.style.background = '#e74c3c'; 
+                micBtn.style.color = '#fff';
+                voiceStatus.innerText = "🎤 듣고 있습니다... ('101번 완주' 또는 '취소')";
+                voiceBanner.innerText = "🎤 음성인식 중... ('101번 완주/취소')";
+                voiceBanner.classList.add('listening');
+            };
+
+            recognition.onend = () => {
+                if (isVoiceActive) {
+                    recognition.start(); // 계속 듣기 유지 (재시작)
+                } else {
+                    micBtn.style.background = '#bdc3c7';
+                    micBtn.style.color = '#000';
+                    voiceStatus.innerText = "";
+                    voiceBanner.innerText = "🔇 음성인식 꺼짐 (터치하여 켜기)";
+                    voiceBanner.classList.remove('listening');
+                }
+            };
+
+            recognition.onresult = (event) => {
+                const last = event.results.length - 1;
+                const transcript = event.results[last][0].transcript.trim();
+                
+                // 정규식: 숫자 + (공백/번) + (완주|취소)
+                const match = transcript.match(/(\d+)\s*(번)?\s*(완주|취소)/);
+                if (match) {
+                    const bib = match[1];
+                    const command = match[3];
+                    
+                    if (command === '완주') {
+                        showToast(`🎤 음성인식: ${bib}번 완주 처리`);
+                        socket.emit('runner_arrived', bib);
+                    } else if (command === '취소') {
+                        showToast(`🎤 음성인식: ${bib}번 기록 취소 요청`);
+                        socket.emit('cancel_runner_finish', bib);
+                    }
+                }
+            };
+
+            micBtn.addEventListener('click', () => {
+                if (isVoiceActive) {
+                    isVoiceActive = false;
+                    recognition.stop();
+                } else {
+                    recognition.start();
+                }
+            });
+            
+            voiceBanner.addEventListener('click', () => {
+                micBtn.click();
+            });
+        } else {
+            micBtn.style.display = 'none';
+        }
 
         socket.on('error_msg', (msg) => showToast(msg));
         socket.on('runner_finished', (runner) => {
