@@ -471,8 +471,8 @@
         });
 
         socket.on('error_msg', (msg) => showAlert(msg));
-        socket.on('runner_finished', (bib) => {
-            showToast(`[완주:${bib}]`);
+        socket.on('runner_finished', (runner) => {
+            showToast(`[완주:${runner.bibNumber}]`);
         });
         
         socket.on('update_ui', (data) => {
