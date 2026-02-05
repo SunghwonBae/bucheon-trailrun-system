@@ -12,11 +12,13 @@ const prisma = new PrismaClient();
 
 app.use(express.json());
 
-// 1. 라우터 파일 불러오기
+// todo 라우터
 const todoRouter = require('./routes/todo');
-
-// 2. API 경로 연결 (/api/todo 로 시작하도록 설정)
 app.use('/api/todo', todoRouter);
+
+// 크롤링 라우터
+const scrapeRouter = require('./routes/scrape'); // 파일 불러오기
+app.use('/api/scrape', scrapeRouter);            // 경로 연결
 
 // [추가] 올해 데이터 필터링 조건
 const currentYear = new Date().getFullYear();
