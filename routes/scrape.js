@@ -19,7 +19,7 @@ router.get('/', async (req, res) => {
             '--disable-setuid-sandbox',
             '--disable-dev-shm-usage',
             '--disable-gpu',
-            '--window-size=1920,1080', // 일반 PC 해상도로 시작
+            '--window-size=1920,1080',
             '--disable-features=site-per-process'
         ]
     });
@@ -55,49 +55,46 @@ router.get('/', async (req, res) => {
         } catch(e) { console.log("Timeout, continuing..."); }
 
         // ============================================================
-        // 🔨 [장애물 파괴] Continue / Accept / Close 버튼 강제 클릭
+        // 🔨 [수정됨] 장애물 파괴 (page.$x 대신 page.$$ 사용)
         // ============================================================
         console.log('[Scrape] Hunting for buttons...');
         
-        // 1. "Continue", "Accept", "View", "Close" 텍스트를 가진 버튼 찾기
         const buttonTexts = ["continue", "accept", "agree", "view result", "close", "okay", "got it", "i understand"];
         
         for (const btnText of buttonTexts) {
             try {
-                // XPath로 텍스트가 포함된 버튼이나 a 태그, div(버튼 역할) 찾기
-                const buttons = await page.$x(`//*[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), '${btnText}')]`);
+                // [수정 포인트] v23 이상에서는 xpath/ 접두어 사용해야 함
+                // //* -> xpath///*
+                const selector = `xpath/// *[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), '${btnText}')]`;
+                const buttons = await page.$$(selector);
                 
                 for (const button of buttons) {
-                    // 화면에 보이는지 확인 후 클릭
                     const isVisible = await button.boundingBox();
                     if (isVisible) {
                         console.log(`[Scrape] 🖱️ Clicking button: "${btnText}"`);
                         await button.click();
-                        await new Promise(r => setTimeout(r, 1000)); // 클릭 후 잠시 대기
+                        await new Promise(r => setTimeout(r, 1000));
                     }
                 }
-            } catch (e) { console.log(`Error clicking ${btnText}: ${e.message}`); }
+            } catch (e) { 
+                // 무시 (버튼 없으면 패스) 
+            }
         }
 
-        // 2. 화면 가리는 레이어(Overlay/Modal) 강제 삭제 (CSS로 날려버리기)
+        // 레이어 강제 삭제
         await page.evaluate(() => {
-            // z-index가 높은(화면을 덮는) div들을 찾아서 투명하게 만들거나 삭제
             const divs = document.querySelectorAll('div, section, aside');
             divs.forEach(div => {
                 const style = window.getComputedStyle(div);
-                // 화면을 꽉 채우고(fixed/absolute) 투명도가 있는 배경(modal backdrop)이면 삭제
                 if ((style.position === 'fixed' || style.position === 'absolute') && style.zIndex > 100) {
-                    // 내용물(텍스트)이 없는 껍데기 레이어만 삭제 (안전장치)
-                    if(div.innerText.trim().length < 50) {
-                        div.remove(); 
-                    }
+                    if(div.innerText.trim().length < 50) div.remove(); 
                 }
             });
         });
         
         console.log('[Scrape] Overlays removed. Scrolling...');
 
-        // 3. 스크롤 내려서 데이터 로딩 유발
+        // 스크롤
         await page.evaluate(async () => {
             await new Promise((resolve) => {
                 let totalHeight = 0;
@@ -145,12 +142,16 @@ router.get('/', async (req, res) => {
         } else {
             console.log('[Scrape] Fallback to HTML text parsing...');
             const htmlData = await page.evaluate(() => {
-                const text = document.body.innerText; // 이제 가리는 게 없어서 잘 읽힐 겁니다
+                const text = document.body.innerText;
                 const lines = text.split('\n');
                 let res = {};
                 
-                // 이름: "Name: O Jin Kim" 또는 "O Jin Kim" 형식 찾기
+                // [이름 추출 강화] 타이틀 뿐만 아니라 h1 태그도 확인
                 if (document.title.includes("'s")) res.name = document.title.split("'s")[0];
+                if (!res.name) {
+                    const h1 = document.querySelector('h1');
+                    if (h1) res.name = h1.innerText.trim();
+                }
 
                 const timeRegex = /(\d{1,2}:\d{2}:\d{2})/;
                 for (let i = 0; i < lines.length; i++) {
@@ -171,7 +172,7 @@ router.get('/', async (req, res) => {
             if (htmlData.total) result.total = htmlData.total;
         }
 
-        // 그래도 실패하면 스크린샷 (이번엔 버튼이 눌렸는지 확인용)
+        // 스크린샷 (디버깅용)
         let screenshot = null;
         if (result.name === 'Unknown' || result.swim === '-') {
             const rawScreenshot = await page.screenshot({ encoding: 'base64', type: 'jpeg', quality: 50 });
