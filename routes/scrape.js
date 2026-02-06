@@ -95,21 +95,21 @@ router.get('/', async (req, res) => {
         console.log('[Scrape] Overlays removed. Scrolling...');
 
         // 스크롤
-        // await page.evaluate(async () => {
-        //     await new Promise((resolve) => {
-        //         let totalHeight = 0;
-        //         const distance = 100;
-        //         const timer = setInterval(() => {
-        //             const scrollHeight = document.body.scrollHeight;
-        //             window.scrollBy(0, distance);
-        //             totalHeight += distance;
-        //             if(totalHeight >= scrollHeight || totalHeight > 5000){
-        //                 clearInterval(timer);
-        //                 resolve();
-        //             }
-        //         }, 100);
-        //     });
-        // });
+        await page.evaluate(async () => {
+            await new Promise((resolve) => {
+                let totalHeight = 0;
+                const distance = 50;
+                const timer = setInterval(() => {
+                    const scrollHeight = document.body.scrollHeight;
+                    window.scrollBy(0, distance);
+                    totalHeight += distance;
+                    if(totalHeight >= scrollHeight || totalHeight > 5000){
+                        clearInterval(timer);
+                        resolve();
+                    }
+                }, 100);
+            });
+        });
         
         await new Promise(r => setTimeout(r, 2000));
 
