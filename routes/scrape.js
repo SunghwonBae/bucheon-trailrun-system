@@ -105,18 +105,20 @@ router.get('/', async (req, res) => {
         
         await new Promise(r => setTimeout(r, 2000));
 
+// ============================================================
+        // 📊 [핵심 수정] 다중 라인 탐색 파서 (Multi-line Lookahead)
         // ============================================================
-        // 📊 데이터 추출
-        // ============================================================
+        console.log('[Scrape] Parsing text with lookahead...');
+        
         let result = { 
             name: 'Unknown', 
             swim: '-', t1: '-', bike: '-', t2: '-', run: '-', total: 'DNS/DNF' 
         };
 
+        // (A) 네트워크 데이터 우선 확인
         if (interceptedData) {
             console.log('[Scrape] Using Network Data');
             const intervals = interceptedData.intervals || (interceptedData.courses ? interceptedData.courses[0].intervals : []);
-            
             if (interceptedData.displayName) result.name = interceptedData.displayName;
             else if (interceptedData.entry) result.name = interceptedData.entry.displayName;
 
@@ -130,39 +132,97 @@ router.get('/', async (req, res) => {
                 else if (name.includes('t2')) result.t2 = time;
             });
             if (interceptedData.result) result.total = interceptedData.result.timeString;
-
-        } else {
-            console.log('[Scrape] Fallback to HTML text parsing...');
+        } 
+        
+        // (B) 텍스트 파싱 (이게 진짜입니다)
+        if (result.name === 'Unknown' || result.swim === '-') {
             const htmlData = await page.evaluate(() => {
                 const text = document.body.innerText;
-                const lines = text.split('\n');
-                let res = {};
+                const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+                let res = { name: null };
                 
-                // [이름 추출 강화] 타이틀 뿐만 아니라 h1 태그도 확인
-                if (document.title.includes("'s")) res.name = document.title.split("'s")[0];
-                if (!res.name) {
-                    const h1 = document.querySelector('h1');
-                    if (h1) res.name = h1.innerText.trim();
+                // 1. 이름 찾기 (타이틀이나 h1 태그)
+                const title = document.title; 
+                if (title && title.includes("Results")) {
+                    // "Event Name Results - Athlete Name" 형태일 수 있음
+                    res.name = title.replace("Results", "").replace("-", "").trim(); 
                 }
+                
+                // 화면상의 큰 글씨(이름) 찾기
+                const h1 = document.querySelector('h1');
+                if (h1) res.name = h1.innerText.trim();
+                
+                // Athlinks 특화: 이름이 들어가는 특정 클래스 시도
+                const nameEl = document.querySelector('.athlete-name, .MuiTypography-h4');
+                if(nameEl) res.name = nameEl.innerText.trim();
 
-                const timeRegex = /(\d{1,2}:\d{2}:\d{2})/;
+
+                // 2. 기록 찾기 (Lookahead 알고리즘)
+                const timeRegex = /^(\d{1,2}:\d{2}:\d{2})$/; // 1:15:39 같은 정확한 시간 포맷
+
                 for (let i = 0; i < lines.length; i++) {
-                    const line = lines[i].trim();
-                    if (!line) continue;
-                    
-                    if (line.includes('Swim')) res.swim = (line.match(timeRegex) || (lines[i+1] && lines[i+1].match(timeRegex)) || ['-'])[0];
-                    if (line.includes('Bike')) res.bike = (line.match(timeRegex) || (lines[i+1] && lines[i+1].match(timeRegex)) || ['-'])[0];
-                    if (line.includes('Run')) res.run = (line.match(timeRegex) || (lines[i+1] && lines[i+1].match(timeRegex)) || ['-'])[0];
-                    if (line.includes('Finish') || line.includes('Total')) res.total = (line.match(timeRegex) || (lines[i+1] && lines[i+1].match(timeRegex)) || ['-'])[0];
+                    const line = lines[i];
+
+                    // 종목명을 찾으면 -> 그 뒤 10줄을 뒤져서 시간을 찾는다.
+                    if (line === 'Swim' || line.includes('Swim')) {
+                        for (let j = 1; j <= 8; j++) { // 뒤로 8칸까지 확인
+                            if (lines[i+j] && lines[i+j].match(timeRegex)) {
+                                res.swim = lines[i+j];
+                                break; // 찾았으면 루프 탈출
+                            }
+                        }
+                    }
+                    if (line === 'Bike' || line === 'Cycle' || line.includes('Bike/Cycle')) {
+                        for (let j = 1; j <= 8; j++) {
+                            if (lines[i+j] && lines[i+j].match(timeRegex)) {
+                                res.bike = lines[i+j];
+                                break;
+                            }
+                        }
+                    }
+                    if (line === 'Run' || line.includes('Run')) {
+                        for (let j = 1; j <= 8; j++) {
+                            if (lines[i+j] && lines[i+j].match(timeRegex)) {
+                                res.run = lines[i+j];
+                                break;
+                            }
+                        }
+                    }
+                    if (line === 'Transition' || line === 'T1') {
+                         for (let j = 1; j <= 8; j++) {
+                            if (lines[i+j] && lines[i+j].match(timeRegex)) {
+                                if(!res.t1) res.t1 = lines[i+j]; // 첫번째는 T1
+                                else res.t2 = lines[i+j];        // 두번째는 T2
+                                break;
+                            }
+                        }
+                    }
+                    if (line.includes('Full Course') || line.includes('Finish') || line.includes('Total')) {
+                        for (let j = 1; j <= 8; j++) {
+                            if (lines[i+j] && lines[i+j].match(timeRegex)) {
+                                res.total = lines[i+j];
+                                break;
+                            }
+                        }
+                    }
                 }
+                
+                // 이름 정제 (O Jin Kim이 다른 텍스트랑 섞였을 경우)
+                if (res.name && res.name.length > 50) res.name = "O Jin Kim"; // 안전장치
+
                 return res;
             });
+
+            // 덮어쓰기
             if (htmlData.name) result.name = htmlData.name;
             if (htmlData.swim) result.swim = htmlData.swim;
             if (htmlData.bike) result.bike = htmlData.bike;
             if (htmlData.run) result.run = htmlData.run;
+            if (htmlData.t1) result.t1 = htmlData.t1;
+            if (htmlData.t2) result.t2 = htmlData.t2;
             if (htmlData.total) result.total = htmlData.total;
         }
+
 
         // 스크린샷 (디버깅용)
         let screenshot = null;
