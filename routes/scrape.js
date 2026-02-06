@@ -185,7 +185,7 @@ router.get('/', async (req, res) => {
         console.log(`[Scrape] Final: ${JSON.stringify(result)}`);
         
         // 스크린샷 제거 (메모리 절약)
-        res.json({ bib, ...result, screenshot: null });
+        res.json({ bib, ...result });
 
     } catch (error) {
         console.error('[Scrape] Error:', error);
