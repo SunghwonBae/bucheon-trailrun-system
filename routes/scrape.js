@@ -151,21 +151,11 @@ router.get('/', async (req, res) => {
                         }
                     }
                 }
-                // T1 (transTimeRegex)
-                if (line === 'T1' || line.includes('Trans 1') || line.includes('Transition 1')) {
+                if (line === 'Transition'|| line.includes('Transition')) {
                         for (let j = 1; j <= 8; j++) {
                         if (lines[i+j] && lines[i+j].match(transTimeRegex)) {
-                            if(!res.t1) res.t1 = lines[i+j];
-                            else res.t2 = lines[i+j];
-                            break;
-                        }
-                    }
-                }
-                // T2 (transTimeRegex) - 명시적 T2가 있는 경우
-                if (line === 'T2' || line.includes('Trans 2') || line.includes('Transition 2')) {
-                        for (let j = 1; j <= 8; j++) {
-                        if (lines[i+j] && lines[i+j].match(transTimeRegex)) {
-                            res.t2 = lines[i+j];
+                            if(!res.t1) res.t1 = lines[i+j]; // 첫번째는 T1
+                            else res.t2 = lines[i+j];        // 두번째는 T2
                             break;
                         }
                     }
