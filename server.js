@@ -3,10 +3,19 @@ const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const { PrismaClient } = require('@prisma/client');
+const cors = require('cors'); // [1] cors 불러오기
 
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
+
+// [3] CORS 미들웨어 적용 (HTTP API용 - scrape 호출 등)
+// 특정 도메인만 허용하려면 아래 주석을 해제하고 사용하세요. (보안상 추천)
+app.use(cors({
+    origin: ["https://korea-triathlon-utils.vercel.app", "http://localhost:3000"],
+    credentials: true
+}));
+
 const prisma = new PrismaClient();
 
 

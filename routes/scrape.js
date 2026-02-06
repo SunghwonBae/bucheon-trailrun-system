@@ -2,6 +2,35 @@ const express = require('express');
 const router = express.Router();
 const puppeteer = require('puppeteer');
 
+// [핵심 1] 브라우저 인스턴스를 전역변수로 관리 (매번 켜지 않음)
+let globalBrowser = null;
+
+async function getBrowser() {
+    // 이미 켜져 있고 연결되어 있으면 그대로 반환 (재사용)
+    if (globalBrowser && globalBrowser.isConnected()) {
+        return globalBrowser;
+    }
+
+    // 없으면 새로 실행 (최초 1회만 실행됨)
+    console.log('[System] Launching new Chrome instance...');
+    globalBrowser = await puppeteer.launch({
+        headless: 'new',
+        executablePath: '/usr/bin/google-chrome',
+        args: [
+            '--no-sandbox',
+            '--disable-setuid-sandbox',
+            '--disable-dev-shm-usage',
+            '--disable-gpu',
+            '--no-zygote',
+            '--single-process',
+            '--disable-extensions',
+            '--window-size=1366,768',
+            '--disable-features=site-per-process'
+        ]
+    });
+    return globalBrowser;
+}
+
 router.get('/', async (req, res) => {
     const { bib, urlTemplate } = req.query;
 
@@ -10,34 +39,19 @@ router.get('/', async (req, res) => {
     }
 
     console.log(`[Scrape] Start: Bib ${bib}`);
-
-    // 1. 브라우저 실행 옵션 (메모리 최적화 유지)
-    const browser = await puppeteer.launch({
-        headless: 'new',
-        executablePath: '/usr/bin/google-chrome',
-        args: [
-            '--no-sandbox',
-            '--disable-setuid-sandbox',
-            '--disable-dev-shm-usage', // 메모리 부족 방지 (필수)
-            '--disable-gpu',
-            '--no-zygote',             // 프로세스 포크 방지
-            '--single-process',        // 단일 프로세스 (메모리 절약 핵심)
-            '--disable-extensions',
-            '--window-size=1366,768',  // 해상도 최소화
-            '--disable-features=site-per-process'
-        ]
-    });
-
     let page = null;
 
     try {
+        // [핵심 2] 켜져 있는 브라우저 가져오기 (속도 대폭 향상)
+        const browser = await getBrowser();
+        
+        // 새 탭만 열기 (가벼움)
         page = await browser.newPage();
 
-        // 2. 리소스 차단 (이미지, 폰트, CSS 차단하여 메모리 확보)
+        // 리소스 차단
         await page.setRequestInterception(true);
         page.on('request', (req) => {
-            const resourceType = req.resourceType();
-            if (['image', 'media', 'font', 'stylesheet'].includes(resourceType)) {
+            if (['image', 'media', 'font', 'stylesheet'].includes(req.resourceType())) {
                 req.abort();
             } else {
                 req.continue();
@@ -47,153 +61,102 @@ router.get('/', async (req, res) => {
         await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
 
         const targetUrl = urlTemplate.replace('{bib}', bib);
-        console.log(`[Scrape] Navigating to: ${targetUrl}`);
-
-        // 3. [개선] 로딩 전략 변경: networkidle2 -> domcontentloaded (훨씬 빠르고 가벼움)
-        try {
-            await page.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
-        } catch(e) { console.log("Navigation timeout, continuing..."); }
-
-        // 4. 팝업/버튼 닫기
-        const buttonTexts = ["continue", "accept", "okay", "got it", "close"];
-        console.log('[Scrape] Clearing popups...');
         
+        // [핵심 3] 타임아웃 단축 (안 되면 빨리 포기하고 다음 단계로)
+        try {
+            await page.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: 20000 });
+        } catch(e) { console.log("Nav timeout, continuing..."); }
+
+        // 방해꾼 제거 (빠르게 시도)
+        const buttonTexts = ["continue", "accept", "okay", "got it", "close"];
         for (const btnText of buttonTexts) {
             try {
-                // XPath로 버튼 찾기
                 const selector = `xpath/// *[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), '${btnText}')]`;
                 const buttons = await page.$$(selector);
-                
                 for (const button of buttons) {
-                    // CSS가 없어서 boundingBox 계산이 안될 수 있으므로 에러 무시하고 클릭 시도
-                    try {
-                        if (await button.boundingBox()) {
-                            await button.click();
-                            await new Promise(r => setTimeout(r, 300));
-                        }
-                    } catch (err) {}
+                    try { if (await button.boundingBox()) await button.click(); } catch (err) {}
                 }
             } catch (e) {}
         }
 
-        // 5. 스마트 스크롤 (데이터 발견 시 중단)
-        console.log('[Scrape] Smart Scrolling...');
+        // [핵심 4] 스크롤 속도 향상 (대기 시간 줄임)
+        // 0.5초 대기 -> 0.1초 대기로 변경 (데이터는 생각보다 빨리 뜸)
         await page.evaluate(async () => {
-            // 최대 6번(약 2400px)까지만 스크롤
-            for (let i = 0; i < 6; i++) {
+            for (let i = 0; i < 5; i++) { // 횟수 6->5로 줄임
                 const bodyText = document.body.innerText;
-                // 핵심 키워드가 보이면 즉시 중단
+                // 필수 데이터 3종 세트가 보이면 즉시 중단
                 if (bodyText.includes('Swim') && bodyText.includes('Run') && bodyText.includes('Bike')) {
-                    console.log('Data detected, stopping scroll.');
                     break;
                 }
-                window.scrollBy(0, 400);
-                await new Promise(resolve => setTimeout(resolve, 500)); // 대기 시간 단축
+                window.scrollBy(0, 600); // 스크롤 보폭 늘림 (400 -> 600)
+                await new Promise(resolve => setTimeout(resolve, 100)); // 대기 시간 대폭 단축 (500ms -> 100ms)
             }
         });
         
-        // 렌더링 안정화 대기
-        await new Promise(r => setTimeout(r, 1000));
+        // 렌더링 안정화 (0.5초만 대기)
+        await new Promise(r => setTimeout(r, 500));
 
-        // 6. 데이터 파싱 (Lookahead + Dual Regex)
-        console.log('[Scrape] Parsing text...');
-        
-        let result = { 
-            name: 'Unknown', 
-            swim: '-', t1: '-', bike: '-', t2: '-', run: '-', total: 'DNS/DNF' 
-        };
-
+        // 데이터 파싱
         const parsedData = await page.evaluate(() => {
-            let res = { name: null, ageGender: null };
+            let res = { name: null, ageGender: null, swim: '-', t1: '-', bike: '-', t2: '-', run: '-', total: 'DNS/DNF' };
             
-            // [A] ID 기반 추출 (가장 정확)
             const nameEl = document.querySelector('#athlete-profile-link');
             if (nameEl) res.name = nameEl.innerText.trim();
 
             const ageEl = document.querySelector('#ageGender');
             if (ageEl) res.ageGender = ageEl.innerText.trim();
 
-            // [B] 텍스트 라인 분석
             const text = document.body.innerText;
             const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
             
-            // 정규식 분리 (기록 vs 바꿈터)
-            const raceTimeRegex = /^\d{1,2}:\d{2}:\d{2}$/; // 예: 1:15:39
-            const transTimeRegex = /^\d{1,2}:\d{2}$/;       // 예: 4:55
+            const raceTimeRegex = /^\d{1,2}:\d{2}:\d{2}$/; 
+            const transTimeRegex = /^\d{1,2}:\d{2}$/;       
 
             for (let i = 0; i < lines.length; i++) {
                 const line = lines[i];
 
-                // Swim (raceTimeRegex)
-                if (line === 'Swim' || line.includes('Swim')) {
-                    for (let j = 1; j <= 8; j++) {
-                        if (lines[i+j] && lines[i+j].match(raceTimeRegex)) {
-                            res.swim = lines[i+j];
-                            break;
-                        }
+                if (line.includes('Swim')) {
+                    for (let j = 1; j <= 10; j++) {
+                        if (lines[i+j] && lines[i+j].match(raceTimeRegex)) { res.swim = lines[i+j]; break; }
                     }
                 }
-                // Bike (raceTimeRegex)
-                if (line === 'Bike' || line === 'Cycle' || line.includes('Bike/Cycle')) {
-                    for (let j = 1; j <= 8; j++) {
-                        if (lines[i+j] && lines[i+j].match(raceTimeRegex)) {
-                            res.bike = lines[i+j];
-                            break;
-                        }
+                if (line.includes('Bike') || line.includes('Cycle')) {
+                    for (let j = 1; j <= 10; j++) {
+                        if (lines[i+j] && lines[i+j].match(raceTimeRegex)) { res.bike = lines[i+j]; break; }
                     }
                 }
-                // Run (raceTimeRegex)
-                if (line === 'Run' || line.includes('Run')) {
-                    for (let j = 1; j <= 8; j++) {
-                        if (lines[i+j] && lines[i+j].match(raceTimeRegex)) {
-                            res.run = lines[i+j];
-                            break;
-                        }
+                if (line.includes('Run')) {
+                    for (let j = 1; j <= 10; j++) {
+                        if (lines[i+j] && lines[i+j].match(raceTimeRegex)) { res.run = lines[i+j]; break; }
                     }
                 }
-                if (line === 'Transition'|| line.includes('Transition')) {
-                        for (let j = 1; j <= 8; j++) {
+                if (line.includes('Transition') || line.includes('Trans') || line === 'T1' || line === 'T2') {
+                    for (let j = 1; j <= 10; j++) {
                         if (lines[i+j] && lines[i+j].match(transTimeRegex)) {
-                            if(!res.t1) res.t1 = lines[i+j]; // 첫번째는 T1
-                            else res.t2 = lines[i+j];        // 두번째는 T2
+                            if (!res.t1 || res.t1 === '-') res.t1 = lines[i+j];
+                            else res.t2 = lines[i+j];
                             break;
                         }
                     }
                 }
-                // Total (raceTimeRegex)
                 if (line.includes('Full Course') || line.includes('Finish') || line.includes('Total')) {
-                    for (let j = 1; j <= 8; j++) {
-                        if (lines[i+j] && lines[i+j].match(raceTimeRegex)) {
-                            res.total = lines[i+j];
-                            break;
-                        }
+                    for (let j = 1; j <= 10; j++) {
+                        if (lines[i+j] && lines[i+j].match(raceTimeRegex)) { res.total = lines[i+j]; break; }
                     }
                 }
             }
             return res;
         });
 
-        // 결과 병합
-        if (parsedData.name) result.name = parsedData.name;
-        if (parsedData.swim) result.swim = parsedData.swim;
-        if (parsedData.bike) result.bike = parsedData.bike;
-        if (parsedData.run) result.run = parsedData.run;
-        if (parsedData.t1) result.t1 = parsedData.t1;
-        if (parsedData.t2) result.t2 = parsedData.t2;
-        if (parsedData.total) result.total = parsedData.total;
-
-        console.log(`[Scrape] Final: ${JSON.stringify(result)}`);
-        
-        // 스크린샷 제거 (메모리 절약)
-        res.json({ bib, ...result });
+        console.log(`[Scrape] Done: ${bib}`);
+        res.json({ bib, ...parsedData });
 
     } catch (error) {
         console.error('[Scrape] Error:', error);
-        res.status(500).json({ error: 'Failed', details: error.message });
+        res.status(500).json({ error: 'Failed' });
     } finally {
-        // [중요] 페이지와 브라우저 명시적 닫기
-        if (page) await page.close();
-        if (browser) await browser.close();
+        if (page) await page.close(); 
+        // [중요] browser.close()는 하지 않습니다! (계속 켜둠)
     }
 });
 
