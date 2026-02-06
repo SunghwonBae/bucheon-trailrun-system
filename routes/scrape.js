@@ -59,7 +59,7 @@ router.get('/', async (req, res) => {
         // ============================================================
         console.log('[Scrape] Hunting for buttons...');
         
-        const buttonTexts = ["continue", "accept", "agree", "view result", "close", "okay", "got it", "i understand"];
+        const buttonTexts = ["continue", "accept",  "okay", "got it"];
         
         for (const btnText of buttonTexts) {
             try {
@@ -82,15 +82,15 @@ router.get('/', async (req, res) => {
         }
 
         // 레이어 강제 삭제
-        await page.evaluate(() => {
-            const divs = document.querySelectorAll('div, section, aside');
-            divs.forEach(div => {
-                const style = window.getComputedStyle(div);
-                if ((style.position === 'fixed' || style.position === 'absolute') && style.zIndex > 100) {
-                    if(div.innerText.trim().length < 50) div.remove(); 
-                }
-            });
-        });
+        // await page.evaluate(() => {
+        //     const divs = document.querySelectorAll('div, section, aside');
+        //     divs.forEach(div => {
+        //         const style = window.getComputedStyle(div);
+        //         if ((style.position === 'fixed' || style.position === 'absolute') && style.zIndex > 100) {
+        //             if(div.innerText.trim().length < 50) div.remove(); 
+        //         }
+        //     });
+        // });
         
         console.log('[Scrape] Overlays removed. Scrolling...');
 
