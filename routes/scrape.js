@@ -17,35 +17,52 @@ router.get('/', async (req, res) => {
         args: [
             '--no-sandbox',
             '--disable-setuid-sandbox',
-            '--disable-dev-shm-usage',
+            '--disable-dev-shm-usage', // 메모리 부족 방지 필수
             '--disable-gpu',
-            '--window-size=1920,1080',
+            '--no-zygote',             // 프로세스 포크 방지 (메모리 절약)
+            '--single-process',        // 단일 프로세스로 실행 (메모리 절약)
+            '--disable-extensions',
+            '--window-size=1366,768',  // 해상도를 조금 낮춤 (메모리 절약)
             '--disable-features=site-per-process'
         ]
     });
 
     try {
         const page = await browser.newPage();
+
+        // 1. [메모리 핵심] 이미지, 폰트, 미디어 차단 (리소스 요청 가로채기)
+        await page.setRequestInterception(true);
+        page.on('request', (req) => {
+            const resourceType = req.resourceType();
+            // 이미지, 미디어, 폰트, 스타일시트(선택적) 차단
+            // 주의: 스타일시트를 막으면 레이아웃 파악이 안 될 수 있어 이미지만 막습니다.
+            if (['image', 'media', 'font', 'stylesheet'].includes(resourceType)) {
+                req.abort();
+            } else {
+                req.continue();
+            }
+        });
+
         await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
 
         // [API 낚시] 데이터 패킷 가로채기
-        let interceptedData = null;
-        page.on('response', async (response) => {
-            const url = response.url();
-            if (url.includes('api') || url.includes('IndividualEntry')) {
-                try {
-                    const contentType = response.headers()['content-type'];
-                    if (contentType && contentType.includes('application/json')) {
-                        const json = await response.json();
-                        const str = JSON.stringify(json);
-                        if (str.includes('Swim') || str.includes('Run') || str.includes('Intervals')) {
-                            console.log(`[Network] 🎣 Data found in API!`);
-                            interceptedData = json;
-                        }
-                    }
-                } catch (e) {}
-            }
-        });
+        // let interceptedData = null;
+        // page.on('response', async (response) => {
+        //     const url = response.url();
+        //     if (url.includes('api') || url.includes('IndividualEntry')) {
+        //         try {
+        //             const contentType = response.headers()['content-type'];
+        //             if (contentType && contentType.includes('application/json')) {
+        //                 const json = await response.json();
+        //                 const str = JSON.stringify(json);
+        //                 if (str.includes('Swim') || str.includes('Run') || str.includes('Intervals')) {
+        //                     console.log(`[Network] 🎣 Data found in API!`);
+        //                     interceptedData = json;
+        //                 }
+        //             }
+        //         } catch (e) {}
+        //     }
+        // });
 
         const targetUrl = urlTemplate.replace('{bib}', bib);
         console.log(`[Scrape] Navigating to: ${targetUrl}`);
@@ -105,7 +122,7 @@ router.get('/', async (req, res) => {
         
         await new Promise(r => setTimeout(r, 2000));
 
-// ============================================================
+        // ============================================================
         // 📊 [핵심 수정] 다중 라인 탐색 파서 (Multi-line Lookahead)
         // ============================================================
         console.log('[Scrape] Parsing text with lookahead...');
@@ -116,23 +133,23 @@ router.get('/', async (req, res) => {
         };
 
         // (A) 네트워크 데이터 우선 확인
-        if (interceptedData) {
-            console.log('[Scrape] Using Network Data');
-            const intervals = interceptedData.intervals || (interceptedData.courses ? interceptedData.courses[0].intervals : []);
-            if (interceptedData.displayName) result.name = interceptedData.displayName;
-            else if (interceptedData.entry) result.name = interceptedData.entry.displayName;
+        // if (interceptedData) {
+        //     console.log('[Scrape] Using Network Data');
+        //     const intervals = interceptedData.intervals || (interceptedData.courses ? interceptedData.courses[0].intervals : []);
+        //     if (interceptedData.displayName) result.name = interceptedData.displayName;
+        //     else if (interceptedData.entry) result.name = interceptedData.entry.displayName;
 
-            intervals.forEach(inv => {
-                const name = (inv.intervalName || inv.IntervalName || "").toLowerCase();
-                const time = (inv.timeString || inv.TimeString || "-");
-                if (name.includes('swim')) result.swim = time;
-                else if (name.includes('bike')) result.bike = time;
-                else if (name.includes('run')) result.run = time;
-                else if (name.includes('t1')) result.t1 = time;
-                else if (name.includes('t2')) result.t2 = time;
-            });
-            if (interceptedData.result) result.total = interceptedData.result.timeString;
-        } 
+        //     intervals.forEach(inv => {
+        //         const name = (inv.intervalName || inv.IntervalName || "").toLowerCase();
+        //         const time = (inv.timeString || inv.TimeString || "-");
+        //         if (name.includes('swim')) result.swim = time;
+        //         else if (name.includes('bike')) result.bike = time;
+        //         else if (name.includes('run')) result.run = time;
+        //         else if (name.includes('t1')) result.t1 = time;
+        //         else if (name.includes('t2')) result.t2 = time;
+        //     });
+        //     if (interceptedData.result) result.total = interceptedData.result.timeString;
+        // } 
         
         // (B) 텍스트 파싱 (이게 진짜입니다)
         if (result.name === 'Unknown' || result.swim === '-') {
@@ -223,8 +240,8 @@ router.get('/', async (req, res) => {
         if (result.name === 'Unknown' || result.swim === '-') {
             console.log('[Debug] Data missing, taking FULL PAGE screenshot...');
             // [중요] fullPage: true 옵션 사용
-            const rawScreenshot = await page.screenshot({ encoding: 'base64', type: 'jpeg', quality: 40, fullPage: true });
-            screenshot = `data:image/jpeg;base64,${rawScreenshot}`;
+            //const rawScreenshot = await page.screenshot({ encoding: 'base64', type: 'jpeg', quality: 40, fullPage: true });
+            //screenshot = `data:image/jpeg;base64,${rawScreenshot}`;
         }
 
         console.log(`[Scrape] Final: ${JSON.stringify(result)}`);
