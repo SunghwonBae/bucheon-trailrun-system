@@ -81,35 +81,27 @@ router.get('/', async (req, res) => {
             }
         }
 
-        // 레이어 강제 삭제
-        // await page.evaluate(() => {
-        //     const divs = document.querySelectorAll('div, section, aside');
-        //     divs.forEach(div => {
-        //         const style = window.getComputedStyle(div);
-        //         if ((style.position === 'fixed' || style.position === 'absolute') && style.zIndex > 100) {
-        //             if(div.innerText.trim().length < 50) div.remove(); 
-        //         }
-        //     });
-        // });
-        
-        console.log('[Scrape] Overlays removed. Scrolling...');
 
-        // 스크롤
-        // await page.evaluate(async () => {
-        //     await new Promise((resolve) => {
-        //         let totalHeight = 0;
-        //         const distance = 50;
-        //         const timer = setInterval(() => {
-        //             const scrollHeight = document.body.scrollHeight;
-        //             window.scrollBy(0, distance);
-        //             totalHeight += distance;
-        //             if(totalHeight >= scrollHeight || totalHeight > 5000){
-        //                 clearInterval(timer);
-        //                 resolve();
-        //             }
-        //         }, 100);
-        //     });
-        // });
+
+        console.log('[Scrape] Smart Scrolling...');
+        
+        await page.evaluate(async () => {
+            // 최대 5번만(약 1500px) 내립니다. 무한 스크롤 방지.
+            for (let i = 0; i < 6; i++) {
+                // 화면에 'Swim'이나 'Race Splits'라는 글자가 보이는지 체크
+                const bodyText = document.body.innerText;
+                if (bodyText.includes('Swim') && bodyText.includes('Run')) {
+                    // 데이터 찾았으면 스크롤 멈춤!
+                    console.log('Data detected on screen, stopping scroll.');
+                    break;
+                }
+                
+                // 못 찾았으면 300px만 살짝 내림
+                window.scrollBy(0, 300);
+                // 데이터 로딩 대기 (0.8초)
+                await new Promise(resolve => setTimeout(resolve, 800));
+            }
+        });
         
         await new Promise(r => setTimeout(r, 2000));
 
@@ -175,7 +167,9 @@ router.get('/', async (req, res) => {
         // 스크린샷 (디버깅용)
         let screenshot = null;
         if (result.name === 'Unknown' || result.swim === '-') {
-            const rawScreenshot = await page.screenshot({ encoding: 'base64', type: 'jpeg', quality: 50 });
+            console.log('[Debug] Data missing, taking FULL PAGE screenshot...');
+            // [중요] fullPage: true 옵션 사용
+            const rawScreenshot = await page.screenshot({ encoding: 'base64', type: 'jpeg', quality: 40, fullPage: true });
             screenshot = `data:image/jpeg;base64,${rawScreenshot}`;
         }
 
