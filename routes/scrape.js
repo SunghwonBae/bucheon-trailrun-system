@@ -137,28 +137,25 @@ router.get('/', async (req, res) => {
         // (B) 텍스트 파싱 (이게 진짜입니다)
         if (result.name === 'Unknown' || result.swim === '-') {
             const htmlData = await page.evaluate(() => {
+                let res = { name: null, ageGender: null };
+                
+                // [1] ID로 이름/나이 추출
+                const nameEl = document.querySelector('#athlete-profile-link');
+                if (nameEl) res.name = nameEl.innerText.trim();
+
+                const ageEl = document.querySelector('#ageGender');
+                if (ageEl) res.ageGender = ageEl.innerText.trim();
+
+                // [2] 텍스트 라인 분석
                 const text = document.body.innerText;
                 const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
-                let res = { name: null };
                 
-                // 1. 이름 찾기 (타이틀이나 h1 태그)
-                const title = document.title; 
-                if (title && title.includes("Results")) {
-                    // "Event Name Results - Athlete Name" 형태일 수 있음
-                    res.name = title.replace("Results", "").replace("-", "").trim(); 
-                }
+                // 🔥 [수정] 정규식 분리 운용
+                // raceTimeRegex: 시:분:초 (예: 1:15:39) -> 주요 종목용
+                const raceTimeRegex = /^\d{1,2}:\d{2}:\d{2}$/; 
                 
-                // 화면상의 큰 글씨(이름) 찾기
-                const h1 = document.querySelector('h1');
-                if (h1) res.name = h1.innerText.trim();
-                
-                // Athlinks 특화: 이름이 들어가는 특정 클래스 시도
-                const nameEl = document.querySelector('.athlete-name, .MuiTypography-h4');
-                if(nameEl) res.name = nameEl.innerText.trim();
-
-
-                // 2. 기록 찾기 (Lookahead 알고리즘)
-                const timeRegex = /^(\d{1,2}:\d{2}:\d{2})$/; // 1:15:39 같은 정확한 시간 포맷
+                // transTimeRegex: 분:초 (예: 4:55, 05:12) -> 바꿈터용
+                const transTimeRegex = /^\d{1,2}:\d{2}$/;
 
                 for (let i = 0; i < lines.length; i++) {
                     const line = lines[i];
@@ -166,7 +163,7 @@ router.get('/', async (req, res) => {
                     // 종목명을 찾으면 -> 그 뒤 10줄을 뒤져서 시간을 찾는다.
                     if (line === 'Swim' || line.includes('Swim')) {
                         for (let j = 1; j <= 8; j++) { // 뒤로 8칸까지 확인
-                            if (lines[i+j] && lines[i+j].match(timeRegex)) {
+                            if (lines[i+j] && lines[i+j].match(raceTimeRegex)) {
                                 res.swim = lines[i+j];
                                 break; // 찾았으면 루프 탈출
                             }
@@ -174,7 +171,7 @@ router.get('/', async (req, res) => {
                     }
                     if (line === 'Bike' || line === 'Cycle' || line.includes('Bike/Cycle')) {
                         for (let j = 1; j <= 8; j++) {
-                            if (lines[i+j] && lines[i+j].match(timeRegex)) {
+                            if (lines[i+j] && lines[i+j].match(raceTimeRegex)) {
                                 res.bike = lines[i+j];
                                 break;
                             }
@@ -182,7 +179,7 @@ router.get('/', async (req, res) => {
                     }
                     if (line === 'Run' || line.includes('Run')) {
                         for (let j = 1; j <= 8; j++) {
-                            if (lines[i+j] && lines[i+j].match(timeRegex)) {
+                            if (lines[i+j] && lines[i+j].match(raceTimeRegex)) {
                                 res.run = lines[i+j];
                                 break;
                             }
@@ -190,7 +187,7 @@ router.get('/', async (req, res) => {
                     }
                     if (line === 'Transition' || line === 'T1') {
                          for (let j = 1; j <= 8; j++) {
-                            if (lines[i+j] && lines[i+j].match(timeRegex)) {
+                            if (lines[i+j] && lines[i+j].match(transTimeRegex)) {
                                 if(!res.t1) res.t1 = lines[i+j]; // 첫번째는 T1
                                 else res.t2 = lines[i+j];        // 두번째는 T2
                                 break;
@@ -199,7 +196,7 @@ router.get('/', async (req, res) => {
                     }
                     if (line.includes('Full Course') || line.includes('Finish') || line.includes('Total')) {
                         for (let j = 1; j <= 8; j++) {
-                            if (lines[i+j] && lines[i+j].match(timeRegex)) {
+                            if (lines[i+j] && lines[i+j].match(raceTimeRegex)) {
                                 res.total = lines[i+j];
                                 break;
                             }
@@ -207,9 +204,6 @@ router.get('/', async (req, res) => {
                     }
                 }
                 
-                // 이름 정제 (O Jin Kim이 다른 텍스트랑 섞였을 경우)
-                if (res.name && res.name.length > 50) res.name = "O Jin Kim"; // 안전장치
-
                 return res;
             });
 
