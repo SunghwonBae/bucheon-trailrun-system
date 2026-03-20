@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+ <!DOCTYPE html>
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
@@ -51,15 +51,15 @@
         <h3>🏆 기록증 문구 설정</h3>
         <div class="config-input">
             <label>대회 명칭:</label>
-            <input type="text" id="input_raceName" value="2026년 부천시의장배 철인3종 트레일런대회" oninput="syncText()">
+            <input type="text" id="input_raceName" value=" " oninput="syncText()">
         </div>
         <div class="config-input">
             <label>부문(제목):</label>
-            <input type="text" id="input_category" value="완주 기록증" oninput="syncText()">
+            <input type="text" id="input_category" value=" " oninput="syncText()">
         </div>
         <div class="config-input">
             <label>상장 본문:</label>
-            <input type="text" id="input_content" value="위 사람은 부천종합운동장에서 개최된 본 대회에서 위와 같은 기록으로 완주하였으므로 이 증서를 수여합니다." oninput="syncText()" style="width: 600px;">
+            <input type="text" id="input_content" value=" " oninput="syncText()" style="width: 600px;">
         </div>
         <div class="config-input">
             <label>수여 날짜:</label>
@@ -67,7 +67,7 @@
         </div>
         <div class="config-input">
             <label>주최 기관:</label>
-            <input type="text" id="input_host" value="부천 트라이 클럽 회장 장 경일" oninput="syncText()">
+            <input type="text" id="input_host" value=" " oninput="syncText()">
         </div>
         <hr>
         <button onclick="window.print()">🖨️ 인쇄하기</button>
@@ -98,11 +98,12 @@
 
             const html = `
                 <div class="certificate-paper">
-                    <div class="cert-title">기 록 증</div>
+                    <div class="cert-title"> </div>
                     <div class="cert-category display_category"></div>
                     <div class="cert-info">
-                        배 번 : ${runner.bibNumber} &nbsp;&nbsp; 성 명 : ${runner.name}<br>
-                        기 록 : ${runner.finishRecord}
+                        ${runner.name} (${runner.bibNumber} )<br>
+                        ${runner.club} <br>
+                        ${runner.finishRecord}
                     </div>
                     <div class="display_raceName" style="font-size:1.5rem; margin-top:40px; font-weight:bold;"></div>
                     <div class="cert-content display_content"></div>
