@@ -7,7 +7,7 @@
     <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
     <script src="/socket.io/socket.io.js"></script>
     <!-- Google Maps API: YOUR_API_KEY 부분을 실제 발급받은 키로 변경해야 지도가 보입니다. -->
-    <script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAXNCrPrwPfVgDHDLiumDwjYbkpV7UGRDE&callback=initMap"></script>
+    <!--<script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAXNCrPrwPfVgDHDLiumDwjYbkpV7UGRDE&callback=initMap"></script>-->
     <style>
         body { font-family: sans-serif; padding: 20px; }
         .controls { margin-bottom: 20px; display: flex; gap: 10px; align-items: center; }
@@ -133,19 +133,19 @@
             <input type="number" id="seniorYearInput" onchange="updateSettings()" style="width: 60px; padding: 8px; text-align: center;" placeholder="년도">
             <span style="font-size: 0.8rem; color: #666;">년생까지 장년</span>
 
-            <span style="margin-left: 10px; border-left: 1px solid #ccc; padding-left: 10px;">📡 반경:</span>
+            <!-- <span style="margin-left: 10px; border-left: 1px solid #ccc; padding-left: 10px;">📡 반경:</span>
             <select id="radiusSelect" onchange="updateRadius()" style="padding: 8px; border-radius: 5px; border: 1px solid #ccc;">
                 <option value="10">10m</option>
                 <option value="20" selected>20m</option>
                 <option value="30">30m</option>
                 <option value="40">40m</option>
                 <option value="50">50m</option>
-            </select>
+            </select> -->
         </div>
     </div>
 
     <!-- 지도 영역 -->
-    <div id="map"></div>
+    <!-- <div id="map"></div> -->
 
     <table id="runnerTable">
         <thead>
@@ -323,7 +323,7 @@
         socket.on('current_settings', (data) => {
             if(data.rankLimit) document.getElementById('rankLimitSelect').value = data.rankLimit;
             if(data.seniorYear) document.getElementById('seniorYearInput').value = data.seniorYear;
-            if(data.goalRadius) document.getElementById('radiusSelect').value = data.goalRadius;
+            //if(data.goalRadius) document.getElementById('radiusSelect').value = data.goalRadius;
             if(data.finishLine) updateMapLocation(data.finishLine);
         });
 
@@ -333,7 +333,7 @@
         });
 
         socket.on('radius_changed', (val) => {
-            document.getElementById('radiusSelect').value = val;
+            //document.getElementById('radiusSelect').value = val;
         });
 
         socket.on('finish_line_changed', (pos) => {

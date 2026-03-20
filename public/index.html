@@ -143,10 +143,11 @@
     <div class="timer-box">
         <div class="info-text">경과 시간</div>
         <div id="timerDisplay">READY</div>
-        <div id="startTimeInfo" class="info-text">[선수들은 GPX동의를 해주시고 관리자는 관리자설정 버튼으로 로그인부탁드립니다.]</div>
+        <div id="startTimeInfo" class="info-text">[관리자는 관리자설정 버튼으로 로그인부탁드립니다.]</div>
+        <!-- <div id="startTimeInfo" class="info-text">[선수들은 GPX동의를 해주시고 관리자는 관리자설정 버튼으로 로그인부탁드립니다.]</div> -->
         
         <div style="margin-top: 15px;">
-            <button id="playerBtn" onclick="location.href='/player.html'">📱 선수GPX동의</button>
+            <!-- <button id="playerBtn" onclick="location.href='/player.html'">📱 선수GPX동의</button> -->
             <button id="startBtn" onclick="startRace()" style="display: none;">🔫 대회 출발</button>
             <button id="resetBtn" onclick="resetRace()" style="display: none;">🔄 전체 초기화</button>
             <button id="goAdminBtn" onclick="goToAdmin()">⚙️ 관리자 설정</button>
@@ -155,10 +156,10 @@
         </div>
     </div>
 
-    <div class="input-box" style="margin-top:10px; background:#fff3cd;">
+    <!-- <div class="input-box" style="margin-top:10px; background:#fff3cd;">
         <strong>📡 GPX인식 자동골인 반경: </strong>
         <span id="currentRadiusInfo" style="font-weight:bold; color:#2c3e50;">20m</span>
-    </div>
+    </div> -->
 
     <div id="finishBibInput" class="input-box" style="display: none;">
         <h3>🏁 완주배번 입력후 Enter</h3>
@@ -497,12 +498,12 @@
         }
 
         socket.on('current_settings', (data) => {
-            if(data.goalRadius) document.getElementById('currentRadiusInfo').innerText = `${data.goalRadius}m`;
+            //if(data.goalRadius) document.getElementById('currentRadiusInfo').innerText = `${data.goalRadius}m`;
             if(data.seniorYear) updateYearDisplay(data.seniorYear);
         });
 
         socket.on('radius_changed', (val) => {
-            document.getElementById('currentRadiusInfo').innerText = `${val}m`;
+            //document.getElementById('currentRadiusInfo').innerText = `${val}m`;
         });
 
         // [추가] 설정 변경 실시간 반영
