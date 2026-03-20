@@ -22,7 +22,7 @@
             width: 210mm; height: 297mm; /* A4 사이즈 */
             background: white; margin: 0 auto 20px auto;
             padding: 20mm; box-sizing: border-box;
-            border: 15px double #c9a55c; /* 상장 테두리 */
+            /*border: 15px double #c9a55c; */ /* 상장 테두리 */
             position: relative; display: flex; flex-direction: column; align-items: center;
         }
 
@@ -63,7 +63,7 @@
         </div>
         <div class="config-input">
             <label>수여 날짜:</label>
-            <input type="text" id="input_date" value="2026년 3월 21일" oninput="syncText()">
+            <input type="text" id="input_date" value="2026  3  21" oninput="syncText()">
         </div>
         <div class="config-input">
             <label>주최 기관:</label>
@@ -101,8 +101,8 @@
                     <div class="cert-title"> </div>
                     <div class="cert-category display_category"></div>
                     <div class="cert-info">
-                        ${runner.name} (${runner.bibNumber} )<br>
-                        ${runner.club} <br>
+                        ${runner.name} <br>
+                        ${runner.affiliation} <br>
                         ${runner.finishRecord}
                     </div>
                     <div class="display_raceName" style="font-size:1.5rem; margin-top:40px; font-weight:bold;"></div>
