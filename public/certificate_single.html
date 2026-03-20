@@ -117,15 +117,19 @@
         });
 
         // 설정창의 텍스트를 상장에 실시간 반영
-        function syncText() {
-            const fields = ['raceName', 'category', 'content', 'date', 'host'];
-            fields.forEach(field => {
-                const val = document.getElementById('input_' + field).value;
-                document.querySelectorAll('.display_' + field).forEach(el => {
-                    el.innerText = val;
-                });
-            });
-        }
+function syncText() {
+    const fields = ['raceName', 'category', 'content', 'date', 'host'];
+    fields.forEach(field => {
+        let val = document.getElementById('input_' + field).value;
+        
+        // 사용자가 입력한 일반 공백 2개 이상을 연속된 공백(&nbsp;)으로 자동 치환 (선택 사항)
+        // val = val.replace(/  /g, '&nbsp;&nbsp;'); 
+
+        document.querySelectorAll('.display_' + field).forEach(el => {
+            el.innerHTML = val;
+        });
+    });
+}
     </script>
 </body>
 </html>
