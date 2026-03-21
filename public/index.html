@@ -165,22 +165,22 @@
         <h3>🏁 완주배번 입력후 Enter</h3>
         <div style="display: flex; justify-content: center; align-items: center; gap: 10px;">
             <input type="number" id="bibInput" inputmode="numeric" placeholder="000">
-            <button id="micBtn" style="font-size: 1.5rem; padding: 10px; border-radius: 50%; border: none; background: #bdc3c7; cursor: pointer;" title="음성인식 켜기/끄기">🎤</button>
+            <!-- <button id="micBtn" style="font-size: 1.5rem; padding: 10px; border-radius: 50%; border: none; background: #bdc3c7; cursor: pointer;" title="음성인식 켜기/끄기">🎤</button> -->
         </div>
-        <div id="voiceStatus" style="font-size: 0.9rem; color: #e74c3c; margin-top: 5px; min-height: 1.2em; font-weight: bold;"></div>
+        <!-- <div id="voiceStatus" style="font-size: 0.9rem; color: #e74c3c; margin-top: 5px; min-height: 1.2em; font-weight: bold;"></div>
         <p style="font-size: 0.85rem; color: #555; margin-top: 10px; line-height: 1.4; word-break: keep-all;">
             [음성인식 골인은 마이크 버튼을 클릭한 후 "101번 완주"로 완주처리하고, 잘못된 음성인식이나 실수한것 지울때는 "101번 취소"로 합니다.]
-        </p>
+        </p> -->
     </div>
 
     <div class="container">
-        <div id="approachingSection" class="rank-card" style="display: none; width: 100%; border: 2px solid #f39c12; margin-bottom: 20px;">
+        <!-- <div id="approachingSection" class="rank-card" style="display: none; width: 100%; border: 2px solid #f39c12; margin-bottom: 20px;">
             <div class="rank-header" style="background: #f39c12;">🚀 자동골인 임박 (100m 이내)</div>
             <table>
                 <thead><tr><th>배번</th><th>이름</th><th>남은거리</th></tr></thead>
                 <tbody id="approachingList"></tbody>
             </table>
-        </div>
+        </div> -->
 
         <div id="missingSection" class="rank-card" style="display: none; width: 100%; border: 2px solid #e74c3c; margin-bottom: 20px;">
             <div class="rank-header" style="background: #e74c3c;">⚠️ 미골인자 현황 (잔여 <span id="missingCount">0</span>명)</div>
@@ -215,7 +215,7 @@
                             <th>배번</th>
                             <th>이름</th>
                             <th>공식 기록 (심판)</th>
-                            <th>자동 기록 (GPX)</th>
+                            <!-- <th>자동 기록 (GPX)</th> -->
                         </tr>
                     </thead>
                     <tbody id="allFinishedList"></tbody>
@@ -770,7 +770,7 @@
                     <td>${r.bibNumber}</td>
                     <td>${r.name}</td>
                     <td style="font-weight:bold; color:#2c3e50;">${manualRecord}</td>
-                    <td style="color:#7f8c8d; font-size:0.85rem;">${autoRecord}</td>
+                    <!-- <td style="color:#7f8c8d; font-size:0.85rem;">${autoRecord}</td> -->
                 </tr>`;
                 tbody.insertAdjacentHTML('beforeend', row);
             });
