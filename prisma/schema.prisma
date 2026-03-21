@@ -42,6 +42,7 @@ model RaceSetting {
   goalRadius    Int     @default(20)
   rankLimit     Int     @default(5)
   seniorYear    Int     // 청장년 구분 년도
+  adminPw       String  @default("20260321")
   finishLineLat Float   @default(37.503)
   finishLineLng Float   @default(126.795)
   startTime     DateTime? // 대회 시작 시간

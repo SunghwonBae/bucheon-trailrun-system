@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <title>부천트라이 산악마라톤대회 - 기록증</title>
+    <title>기록증 인쇄 데이터 설정</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&display=swap');
 
@@ -21,45 +21,39 @@
         .config-input label { font-weight: bold; min-width: 90px; }
         .config-input input { padding: 5px; border: 1px solid #ddd; border-radius: 4px; }
 
-        /* 상장 용지 스타일 */
+        /* 상장 용지 스타일 (양식지 인쇄용) */
         .certificate-paper {
             width: 210mm; height: 297mm;
             background: white; margin: 0 auto 20px auto;
-            padding: 20mm; box-sizing: border-box;
-            position: relative; display: flex; flex-direction: column; align-items: center;
+            padding: 0; box-sizing: border-box;
+            position: relative; 
             box-shadow: 0 0 20px rgba(0,0,0,0.2);
+            overflow: hidden;
         }
 
-        /* 각 섹션별 기본 스타일 */
-        .cert-title { font-size: 50px; font-weight: bold; margin-top: 328px; letter-spacing: 15px; }
-        .cert-category { font-size: 24px; margin-top: 60px; }
-        
-        /* 선수 정보 영역 (위치 조절 가능) */
+        /* 선수 정보 영역: 왼쪽 정렬 및 자유 위치 */
         .cert-info { 
+            position: absolute; /* 자유로운 위치 조정을 위해 absolute로 변경 */
             font-size: 30px; 
-            text-align: center; 
-            position: relative; /* Top, Left 조절을 위해 relative 설정 */
+            text-align: left; 
+            line-height: 1.8;
+            white-space: nowrap;
         }
         
-        .cert-content { font-size: 26px; line-height: 1.8; margin-top: 90px; text-align: center; width: 80%; }
-        
+        /* 날짜 영역: 자유 위치 */
         .cert-date { 
-            font-size: 22px; margin-top: 75px; position: relative; left: -100px;
-            display: flex; align-items: center; justify-content: center;
+            position: absolute; /* 자유로운 위치 조정을 위해 absolute로 변경 */
+            font-size: 22px; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center;
+            white-space: nowrap;
         }
 
-        .cert-host { font-size: 32px; font-weight: bold; margin-top: 50px; }
-
-        /* 제어용 클래스 */
-        .hidden { display: none !important; }
-
-        .btn-group { margin-top: 15px; display: flex; gap: 10px; }
-        .btn-toggle { background: #ecf0f1; color: #2c3e50; border: 1px solid #bdc3c7; padding: 5px 10px; font-size: 12px; }
-        .btn-toggle.active { background: #2ecc71; color: white; border-color: #27ae60; }
         .btn-main { padding: 10px 25px; background: #2c3e50; color: white; border: none; cursor: pointer; border-radius: 5px; font-weight: bold; }
 
         @media print {
-            .config-panel, .no-print { display: none !important; }
+            .config-panel { display: none !important; }
             body { background: white; padding: 0; }
             .certificate-paper { margin: 0; border: none; box-shadow: none; page-break-after: always; }
         }
@@ -67,46 +61,47 @@
 </head>
 <body>
     <div class="config-panel">
-        <h3>🏆 상장 레이아웃 상세 설정</h3>
+        <h3>📄 양식지 인쇄 데이터 설정</h3>
         
         <div class="config-section">
-            <h4>👁️ 항목 표시/숨김</h4>
-            <div class="btn-group">
-                <button class="btn-toggle active" onclick="toggleSection('cert-title', this)">제목</button>
-                <button class="btn-toggle active" onclick="toggleSection('cert-category', this)">부문</button>
-                <button class="btn-toggle active" onclick="toggleSection('cert-content', this)">본문</button>
-                <button class="btn-toggle active" onclick="toggleSection('cert-host', this)">주최기관</button>
-            </div>
-        </div>
-
-        <div class="config-section">
-            <h4>👤 선수 정보 설정 (이름/소속/기록)</h4>
+            <h4>👤 선수 정보 (이름/소속/기록)</h4>
             <div class="config-input">
-                <label>상하 위치(Top):</label>
-                <input type="number" id="info_top" value="20" step="5" oninput="updateLayout()"> px
-                <label style="margin-left:20px;">좌우 위치(Left):</label>
-                <input type="number" id="info_left" value="0" step="5" oninput="updateLayout()"> px
+                <label>세로 위치(Top):</label>
+                <input type="number" id="info_top" value="450" step="5" oninput="updateLayout()"> px
+                <label style="margin-left:20px;">가로 위치(Left):</label>
+                <input type="number" id="info_left" value="300" step="5" oninput="updateLayout()"> px
             </div>
             <div class="config-input">
                 <label>줄 간격(Line):</label>
-                <input type="number" id="info_lineheight" value="1.5" step="0.1" oninput="updateLayout()"> (배수)
+                <input type="number" id="info_lineheight" value="2.0" step="0.1" oninput="updateLayout()"> (배수)
+                <label style="margin-left:20px;">글자 크기:</label>
+                <input type="number" id="info_size" value="30" step="1" oninput="updateLayout()"> px
             </div>
         </div>
 
         <div class="config-section">
-            <h4>📅 날짜 및 간격</h4>
+            <h4>📅 날짜 설정</h4>
             <div class="config-input">
-                <input type="number" id="input_year" value="2026" style="width: 60px;" oninput="updateLayout()"> 년
-                <input type="number" id="input_gap1" value="40" style="width: 50px;" oninput="updateLayout()"> px
-                <input type="number" id="input_month" value="3" style="width: 40px;" oninput="updateLayout()"> 월
-                <input type="number" id="input_gap2" value="40" style="width: 50px;" oninput="updateLayout()"> px
-                <input type="number" id="input_day" value="21" style="width: 40px;" oninput="updateLayout()"> 일
+                <label>세로 위치(Top):</label>
+                <input type="number" id="date_top" value="800" step="5" oninput="updateLayout()"> px
+                <label style="margin-left:20px;">가로 위치(Left):</label>
+                <input type="number" id="date_left" value="320" step="5" oninput="updateLayout()"> px
+            </div>
+            <div class="config-input">
+                <label>날짜 숫자:</label>
+                <input type="number" id="input_year" value="2026" style="width: 60px;" oninput="updateLayout()">
+                <input type="number" id="input_month" value="3" style="width: 40px;" oninput="updateLayout()">
+                <input type="number" id="input_day" value="21" style="width: 40px;" oninput="updateLayout()">
+            </div>
+            <div class="config-input">
+                <label>숫자 사이 간격:</label>
+                <input type="number" id="input_gap" value="60" style="width: 60px;" oninput="updateLayout()"> px
             </div>
         </div>
 
-        <div class="btn-group">
+        <div style="margin-top: 10px;">
             <button class="btn-main" onclick="window.print()">🖨️ 인쇄하기</button>
-            <button class="btn-main" onclick="window.close()" style="background:#7f8c8d;">❌ 닫기</button>
+            <button class="btn-main" onclick="window.close()" style="background:#7f8c8d; margin-left: 10px;">❌ 닫기</button>
         </div>
     </div>
 
@@ -124,22 +119,14 @@
             if (!runner) { alert("선수 정보를 찾을 수 없습니다."); return; }
 
             const html = `
-                <div class="certificate-paper" id="printArea">
-                    <div class="cert-title" id="sec-cert-title">기 록 증</div>
-                    <div class="cert-category" id="sec-cert-category">산악 마라톤</div>
-                    
-                    <div class="cert-info" id="sec-cert-info">
+                <div class="certificate-paper">
+                    <div class="cert-info" id="target-info">
                         ${runner.name} <br>
                         ${runner.affiliation} <br>
                         ${runner.finishRecord}
                     </div>
-
-                    <div style="font-size:1.5rem; margin-top:40px; font-weight:bold;">부천트라이 산악마라톤대회</div>
-                    <div class="cert-content" id="sec-cert-content">위 사람은 제1회 부천트라이 산악마라톤대회에서<br>우수한 성적으로 완주하였기에 이 증서를 수여합니다.</div>
                     
-                    <div class="cert-date display_date"></div>
-                    
-                    <div class="cert-host" id="sec-cert-host">부천트라이애슬론 연맹</div>
+                    <div class="cert-date" id="target-date"></div>
                 </div>
             `;
             
@@ -147,43 +134,33 @@
             updateLayout(); 
         });
 
-        // 1. 섹션 표시/숨김 토글 함수
-        function toggleSection(sectionId, btn) {
-            const target = document.getElementById('sec-' + sectionId);
-            if (target) {
-                target.classList.toggle('hidden');
-                btn.classList.toggle('active');
-            }
-        }
-
-        // 2. 전체 레이아웃 업데이트 (위치, 간격, 날짜)
         function updateLayout() {
-            // A. 선수 정보 위치 및 줄간격 적용
-            const infoBox = document.getElementById('sec-cert-info');
+            // 선수 정보 위치/간격/크기 업데이트
+            const infoBox = document.getElementById('target-info');
             if (infoBox) {
-                infoBox.style.marginTop = document.getElementById('info_top').value + 'px';
+                infoBox.style.top = document.getElementById('info_top').value + 'px';
                 infoBox.style.left = document.getElementById('info_left').value + 'px';
                 infoBox.style.lineHeight = document.getElementById('info_lineheight').value;
+                infoBox.style.fontSize = document.getElementById('info_size').value + 'px';
             }
 
-            // B. 날짜 구성
-            const year = document.getElementById('input_year').value;
-            const month = document.getElementById('input_month').value;
-            const day = document.getElementById('input_day').value;
-            const gap1 = document.getElementById('input_gap1').value;
-            const gap2 = document.getElementById('input_gap2').value;
+            // 날짜 위치 및 간격 업데이트
+            const dateBox = document.getElementById('target-date');
+            if (dateBox) {
+                dateBox.style.top = document.getElementById('date_top').value + 'px';
+                dateBox.style.left = document.getElementById('date_left').value + 'px';
+                
+                const year = document.getElementById('input_year').value;
+                const month = document.getElementById('input_month').value;
+                const day = document.getElementById('input_day').value;
+                const gap = document.getElementById('input_gap').value;
 
-            const dateDisplay = document.querySelector('.display_date');
-            if (dateDisplay) {
-                dateDisplay.innerHTML = `
+                dateBox.innerHTML = `
                     <span>${year}</span>
-                    <span style="display:inline-block; width:${gap1}px;"></span>년
-                    <span style="display:inline-block; width:${gap1}px;"></span>
+                    <span style="display:inline-block; width:${gap}px;"></span>
                     <span>${month}</span>
-                    <span style="display:inline-block; width:${gap2}px;"></span>월
-                    <span style="display:inline-block; width:${gap2}px;"></span>
+                    <span style="display:inline-block; width:${gap}px;"></span>
                     <span>${day}</span>
-                    <span style="display:inline-block; width:${gap2}px;"></span>일
                 `;
             }
         }

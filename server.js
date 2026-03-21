@@ -43,6 +43,7 @@ let rankLimit = 5;
 let seniorYear = currentYear - 48; 
 let FINISH_LINE = { lat: 37.503, lng: 126.795 }; 
 let isCountingDown = false; // [추가] 카운트다운 진행 상태
+let adminPw = "20260321";
 
 // [함수] 대회 설정 로드 (DB 연동)
 async function loadRaceSettings() {
@@ -50,12 +51,13 @@ async function loadRaceSettings() {
         let settings = await prisma.raceSetting.findUnique({ where: { year: currentYear } });
         if (!settings) {
             settings = await prisma.raceSetting.create({
-                data: { year: currentYear, goalRadius, rankLimit, seniorYear, finishLineLat: FINISH_LINE.lat, finishLineLng: FINISH_LINE.lng }
+                data: { year: currentYear, goalRadius, rankLimit, seniorYear, finishLineLat: FINISH_LINE.lat, finishLineLng: FINISH_LINE.lng , adminPw: "20260321" }
             });
         }
         goalRadius = settings.goalRadius;
         rankLimit = settings.rankLimit;
         seniorYear = settings.seniorYear;
+        adminPw = settings.adminPw;
         FINISH_LINE = { lat: settings.finishLineLat, lng: settings.finishLineLng };
         console.log(`[설정 로드] ${currentYear}년도 설정 적용: 반경 ${goalRadius}m, 장년 ${seniorYear}년생, 순위 ${rankLimit}위`);
     } catch (err) {
@@ -202,9 +204,6 @@ app.post('/api/runners/bulk', async (req, res) => {
 io.on('connection', async (socket) => {
     console.log('접속:', socket.id);
 
-    // [보안] 관리자 비밀번호 생성 및 전송 (YYYYMMDD)
-    const today = new Date();
-    const adminPw = `${today.getFullYear()}${String(today.getMonth() + 1).padStart(2, '0')}${String(today.getDate()).padStart(2, '0')}`;
     socket.emit('receive_password', adminPw);
 
     // 접속 시 현재 설정값 전송

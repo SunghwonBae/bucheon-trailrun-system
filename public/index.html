@@ -315,9 +315,9 @@
 
         // [보안] 관리자 비밀번호 (서버에서 수신)
         let adminPassword = "20260321"; 
-        // socket.on('receive_password', (pw) => {
-        //     adminPassword = pw;
-        // });
+        socket.on('receive_password', (pw) => {
+             adminPassword = pw;
+        });
 
         // [UI] 관리자 권한 확인 (로그인 후 finishBibInput 표시)
         const isAdmin = localStorage.getItem('admin_access') === 'granted';
