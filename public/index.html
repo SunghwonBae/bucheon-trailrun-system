@@ -584,81 +584,81 @@
         });
 
         // [추가] 음성 인식 기능 (Web Speech API)
-        const micBtn = document.getElementById('micBtn');
-        const voiceStatus = document.getElementById('voiceStatus');
-        const voiceBanner = document.getElementById('voiceStatusBanner');
-        let isVoiceActive = false;
-        let recognition = null;
+        //const micBtn = document.getElementById('micBtn');
+        //const voiceStatus = document.getElementById('voiceStatus');
+        //const voiceBanner = document.getElementById('voiceStatusBanner');
+        //let isVoiceActive = false;
+        //let recognition = null;
 
-        if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
-            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-            recognition = new SpeechRecognition();
-            recognition.lang = 'ko-KR';
-            recognition.continuous = true; // 지속적 인식
-            recognition.interimResults = false;
+        // if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+        //     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        //     recognition = new SpeechRecognition();
+        //     recognition.lang = 'ko-KR';
+        //     recognition.continuous = true; // 지속적 인식
+        //     recognition.interimResults = false;
             
             // 관리자라면 배너 표시 및 여백 확보
-            if (localStorage.getItem('admin_access') === 'granted') {
-                voiceBanner.style.display = 'block';
-                document.body.style.paddingTop = '50px';
-            }
+            // if (localStorage.getItem('admin_access') === 'granted') {
+            //     voiceBanner.style.display = 'block';
+            //     document.body.style.paddingTop = '50px';
+            // }
 
-            recognition.onstart = () => {
-                isVoiceActive = true;
-                micBtn.style.background = '#e74c3c'; 
-                micBtn.style.color = '#fff';
-                voiceStatus.innerText = "🎤 듣고 있습니다... ('101번 완주' 또는 '취소')";
-                voiceBanner.innerText = "🎤 음성인식 중... ('101번 완주/취소')";
-                voiceBanner.classList.add('listening');
-            };
+            // recognition.onstart = () => {
+            //     isVoiceActive = true;
+            //     micBtn.style.background = '#e74c3c'; 
+            //     micBtn.style.color = '#fff';
+            //     voiceStatus.innerText = "🎤 듣고 있습니다... ('101번 완주' 또는 '취소')";
+            //     voiceBanner.innerText = "🎤 음성인식 중... ('101번 완주/취소')";
+            //     voiceBanner.classList.add('listening');
+            // };
 
-            recognition.onend = () => {
-                if (isVoiceActive) {
-                    recognition.start(); // 계속 듣기 유지 (재시작)
-                } else {
-                    micBtn.style.background = '#bdc3c7';
-                    micBtn.style.color = '#000';
-                    voiceStatus.innerText = "";
-                    voiceBanner.innerText = "🔇 음성인식 꺼짐 (터치하여 켜기)";
-                    voiceBanner.classList.remove('listening');
-                }
-            };
+            // recognition.onend = () => {
+            //     if (isVoiceActive) {
+            //         recognition.start(); // 계속 듣기 유지 (재시작)
+            //     } else {
+            //         micBtn.style.background = '#bdc3c7';
+            //         micBtn.style.color = '#000';
+            //         voiceStatus.innerText = "";
+            //         voiceBanner.innerText = "🔇 음성인식 꺼짐 (터치하여 켜기)";
+            //         voiceBanner.classList.remove('listening');
+            //     }
+            // };
 
-            recognition.onresult = (event) => {
-                const last = event.results.length - 1;
-                const transcript = event.results[last][0].transcript.trim();
+            // recognition.onresult = (event) => {
+            //     const last = event.results.length - 1;
+            //     const transcript = event.results[last][0].transcript.trim();
                 
-                // 정규식: 숫자 + (공백/번) + (완주|취소)
-                const match = transcript.match(/(\d+)\s*(번)?\s*(완주|취소)/);
-                if (match) {
-                    const bib = match[1];
-                    const command = match[3];
+            //     // 정규식: 숫자 + (공백/번) + (완주|취소)
+            //     const match = transcript.match(/(\d+)\s*(번)?\s*(완주|취소)/);
+            //     if (match) {
+            //         const bib = match[1];
+            //         const command = match[3];
                     
-                    if (command === '완주') {
-                        showToast(`🎤 음성인식: ${bib}번 완주 처리`);
-                        socket.emit('runner_arrived', bib);
-                    } else if (command === '취소') {
-                        showToast(`🎤 음성인식: ${bib}번 기록 취소 요청`);
-                        socket.emit('cancel_runner_finish', bib);
-                    }
-                }
-            };
+            //         if (command === '완주') {
+            //             showToast(`🎤 음성인식: ${bib}번 완주 처리`);
+            //             socket.emit('runner_arrived', bib);
+            //         } else if (command === '취소') {
+            //             showToast(`🎤 음성인식: ${bib}번 기록 취소 요청`);
+            //             socket.emit('cancel_runner_finish', bib);
+            //         }
+            //     }
+            // };
 
-            micBtn.addEventListener('click', () => {
-                if (isVoiceActive) {
-                    isVoiceActive = false;
-                    recognition.stop();
-                } else {
-                    recognition.start();
-                }
-            });
+            // micBtn.addEventListener('click', () => {
+            //     if (isVoiceActive) {
+            //         isVoiceActive = false;
+            //         recognition.stop();
+            //     } else {
+            //         recognition.start();
+            //     }
+            // });
             
-            voiceBanner.addEventListener('click', () => {
-                micBtn.click();
-            });
-        } else {
-            micBtn.style.display = 'none';
-        }
+            // voiceBanner.addEventListener('click', () => {
+            //     micBtn.click();
+            // });
+        // } else {
+        //     micBtn.style.display = 'none';
+        // }
 
         socket.on('error_msg', (msg) => showToast(msg));
         socket.on('runner_finished', (runner) => {
