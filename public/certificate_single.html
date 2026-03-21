@@ -33,7 +33,9 @@
             font-size: 26px; line-height: 1.8; margin-top: 90px; 
             text-align: center; width: 80%; text-justify: inter-word;
         }
-        .cert-date { font-size: 22px; margin-top: 80px; }
+        .cert-date { font-size: 22px; margin-top: 80px; 
+        position: relative; /* 위치 조정을 위해 추가 */
+    left: -100px;       /* 현재 위치에서 왼쪽으로 100px 이동 */}
         .cert-host { font-size: 32px; font-weight: bold; margin-top: 50px; }
 
         button { padding: 10px 20px; background: #2c3e50; color: white; border: none; cursor: pointer; border-radius: 5px; }
@@ -59,11 +61,11 @@
         </div>
         <div class="config-input">
             <label>상장 본문:</label>
-            <input type="text" id="input_content" value="2026 &nbsp;&nbsp;&nbsp;&nbsp;3 &nbsp;&nbsp;&nbsp; 21&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;" oninput="syncText()" style="width: 600px;">
+            <input type="text" id="input_content" value="" oninput="syncText()" style="width: 600px;">
         </div>
         <div class="config-input">
             <label>수여 날짜:</label>
-            <input type="text" id="input_date" value="2026  3  21" oninput="syncText()">
+            <input type="text" id="input_date" value="2026 &nbsp;&nbsp;&nbsp;&nbsp;3 &nbsp;&nbsp;&nbsp; 21&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;" oninput="syncText()">
         </div>
         <div class="config-input">
             <label>주최 기관:</label>
