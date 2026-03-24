@@ -31,18 +31,18 @@
             overflow: hidden;
         }
 
-        /* 선수 정보 영역: 왼쪽 정렬 및 자유 위치 */
+        /* 선수 정보 영역 */
         .cert-info { 
-            position: absolute; /* 자유로운 위치 조정을 위해 absolute로 변경 */
+            position: absolute; 
             font-size: 30px; 
             text-align: left; 
             line-height: 1.8;
             white-space: nowrap;
         }
         
-        /* 날짜 영역: 자유 위치 */
+        /* 날짜 영역 */
         .cert-date { 
-            position: absolute; /* 자유로운 위치 조정을 위해 absolute로 변경 */
+            position: absolute; 
             font-size: 22px; 
             display: flex; 
             align-items: center; 
@@ -102,6 +102,7 @@
         <div style="margin-top: 10px;">
             <button class="btn-main" onclick="window.print()">🖨️ 인쇄하기</button>
             <button class="btn-main" onclick="window.close()" style="background:#7f8c8d; margin-left: 10px;">❌ 닫기</button>
+            <button class="btn-main" onclick="resetSettings()" style="background:#e74c3c; margin-left: 10px;">🔄 설정 초기화</button>
         </div>
     </div>
 
@@ -113,7 +114,14 @@
         const urlParams = new URLSearchParams(window.location.search);
         const bib = urlParams.get('bib');
 
-        socket.emit('get_runner_info', bib);
+        // 로컬스토리지 키 정의
+        const STORAGE_KEY = 'cert_layout_settings';
+
+        // 1. 초기 로드 시 실행
+        window.onload = () => {
+            loadSettings(); // 저장된 값 불러오기
+            socket.emit('get_runner_info', bib);
+        };
 
         socket.on('runner_info_res', (runner) => {
             if (!runner) { alert("선수 정보를 찾을 수 없습니다."); return; }
@@ -125,17 +133,53 @@
                         ${runner.affiliation} <br>
                         ${runner.finishRecord}
                     </div>
-                    
                     <div class="cert-date" id="target-date"></div>
                 </div>
             `;
             
             document.getElementById('certContainer').innerHTML = html;
-            updateLayout(); 
+            updateLayout(false); // UI 반영 (자동저장 방지 위해 false 전달)
         });
 
-        function updateLayout() {
-            // 선수 정보 위치/간격/크기 업데이트
+        // 2. 설정값 저장 함수
+        function saveSettings() {
+            const settings = {
+                info_top: document.getElementById('info_top').value,
+                info_left: document.getElementById('info_left').value,
+                info_lineheight: document.getElementById('info_lineheight').value,
+                info_size: document.getElementById('info_size').value,
+                date_top: document.getElementById('date_top').value,
+                date_left: document.getElementById('date_left').value,
+                input_year: document.getElementById('input_year').value,
+                input_month: document.getElementById('input_month').value,
+                input_day: document.getElementById('input_day').value,
+                input_gap: document.getElementById('input_gap').value
+            };
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
+        }
+
+        // 3. 설정값 불러오기 함수
+        function loadSettings() {
+            const saved = localStorage.getItem(STORAGE_KEY);
+            if (saved) {
+                const settings = JSON.parse(saved);
+                Object.keys(settings).forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) el.value = settings[id];
+                });
+            }
+        }
+
+        // 4. 설정 초기화
+        function resetSettings() {
+            if(confirm("모든 위치 설정을 기본값으로 되돌리시겠습니까?")) {
+                localStorage.removeItem(STORAGE_KEY);
+                location.reload();
+            }
+        }
+
+        // 5. 레이아웃 업데이트 및 저장
+        function updateLayout(shouldSave = true) {
             const infoBox = document.getElementById('target-info');
             if (infoBox) {
                 infoBox.style.top = document.getElementById('info_top').value + 'px';
@@ -144,7 +188,6 @@
                 infoBox.style.fontSize = document.getElementById('info_size').value + 'px';
             }
 
-            // 날짜 위치 및 간격 업데이트
             const dateBox = document.getElementById('target-date');
             if (dateBox) {
                 dateBox.style.top = document.getElementById('date_top').value + 'px';
@@ -163,6 +206,9 @@
                     <span>${day}</span>
                 `;
             }
+
+            // 값이 바뀔 때마다 로컬스토리지에 저장
+            if (shouldSave) saveSettings();
         }
     </script>
 </body>
