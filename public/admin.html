@@ -555,7 +555,8 @@
                 "이름": r.name,
                 "성별": r.gender,
                 "출생년도": r.birthYear,
-                "기록": formatTime(r.finishTime, r.startTime), // 엑셀에도 시:분:초 포함
+                // [수정] formatTime 결과 뒤에 공백(" ")을 덧붙여 엑셀의 자동 시간/날짜 변환을 방지합니다.
+                "기록": formatTime(r.finishTime, r.startTime) + " ",
                 "연락처": r.phone,
                 "소속": r.affiliation,
                 "입금": r.paymentStatus

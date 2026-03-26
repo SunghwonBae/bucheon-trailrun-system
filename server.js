@@ -77,6 +77,13 @@ function getDistance(lat1, lon1, lat2, lon2) {
     return R * c; // 거리(m) 반환
 }
 
+// [추가] 강제로 KST(한국 시간) Date 객체를 반환하는 함수
+function getKstDate() {
+    const now = new Date();
+    // 현재 UTC 시간에 9시간(32,400,000 밀리초)을 더합니다.
+    return new Date(now.getTime() + 9 * 60 * 60 * 1000);
+}
+
 
 // [함수] 모든 대회 데이터(입상자, 미골인자, 전체 골인자) 가져오기
 async function getRaceData() {
@@ -169,6 +176,15 @@ app.post('/api/runners/bulk', async (req, res) => {
     const runners = req.body; // 엑셀에서 추출된 선수 배열
     
     try {
+
+        // 1. [추가] 올해 대회 설정 정보를 조회하여 이미 출발했는지(startTime) 확인합니다.
+        const raceSetting = await prisma.raceSetting.findUnique({
+            where: { year: currentYear }
+        });
+
+        // 대회가 이미 출발했다면 해당 출발 시간을, 아직 출발 전이라면 null을 준비합니다.
+        const currentRaceStartTime = raceSetting ? raceSetting.startTime : null;
+
         // 비즈니스 로직: 기존 배번이 있으면 업데이트, 없으면 생성
         const promises = runners.map(runner => {
             return prisma.trailRunner.upsert({
@@ -188,7 +204,10 @@ app.post('/api/runners/bulk', async (req, res) => {
                     birthYear: Number(runner.birthYear),
                     affiliation: runner.affiliation,
                     phone: String(runner.phone || ''),
-                    ...(runner.paymentStatus && { paymentStatus: runner.paymentStatus })
+                    ...(runner.paymentStatus && { paymentStatus: runner.paymentStatus }),
+                    // 2. [추가] 신규 생성 시, 이미 출발한 대회라면 동일한 출발 시간을 부여합니다.
+                    createdAt: getKstDate(),
+                    startTime: currentRaceStartTime
                 }
             });
         });
@@ -198,6 +217,28 @@ app.post('/api/runners/bulk', async (req, res) => {
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: "데이터 형식이 올바르지 않습니다." });
+    }
+});
+
+// [1회성 API] 기존 DB의 시간 데이터에 +9시간 일괄 적용 (createdAt 포함)
+app.get('/api/migrate-to-kst', async (req, res) => {
+    try {
+        // trail_runners 테이블 (선수 기록 및 생성일) 보정
+        await prisma.$executeRaw`UPDATE "trail_runners" SET "startTime" = "startTime" + interval '9 hours' WHERE "startTime" IS NOT NULL`;
+        await prisma.$executeRaw`UPDATE "trail_runners" SET "finishTime" = "finishTime" + interval '9 hours' WHERE "finishTime" IS NOT NULL`;
+        await prisma.$executeRaw`UPDATE "trail_runners" SET "autoFinishTime" = "autoFinishTime" + interval '9 hours' WHERE "autoFinishTime" IS NOT NULL`;
+        
+        // [추가] createdAt 보정 (모든 선수 데이터 대상)
+        await prisma.$executeRaw`UPDATE "trail_runners" SET "createdAt" = "createdAt" + interval '9 hours'`;
+        
+        // RaceSetting 테이블 (대회 설정) 보정
+        await prisma.$executeRaw`UPDATE "RaceSetting" SET "startTime" = "startTime" + interval '9 hours' WHERE "startTime" IS NOT NULL`;
+        await prisma.$executeRaw`UPDATE "RaceSetting" SET "finishTime" = "finishTime" + interval '9 hours' WHERE "finishTime" IS NOT NULL`;
+
+        res.json({ message: "DB 기존 데이터 KST(+9시간) 보정 및 createdAt 수정 완료!" });
+    } catch (err) {
+        console.error("KST 마이그레이션 실패:", err);
+        res.status(500).json({ error: "마이그레이션 실패" });
     }
 });
 
@@ -231,7 +272,9 @@ io.on('connection', async (socket) => {
         if (isCountingDown) return; // 이미 카운트다운 중이면 무시
 
         // 중복 클릭 방지를 위해 서버에서도 한 번 더 체크 가능
-        const setting = await prisma.raceSetting.findUnique({ where: { year: currentYear } });
+        const setting = await prisma.raceSetting.findUnique({ 
+            where: { year: currentYear } 
+        });
         
         if (setting && setting.startTime) return; // 이미 시작됐다면 무시
 
@@ -248,7 +291,9 @@ io.on('connection', async (socket) => {
                 isCountingDown = false;
                 io.emit('countdown', 0); // 카운트다운 종료 (UI 숨김)
 
-                const now = new Date();
+                //const now = new Date();
+                const now = getKstDate(); // [변경] new Date() -> getKstDate()
+
                 // [변경] RaceSetting에 시작 시간 기록
                 await prisma.raceSetting.update({
                     where: { year: currentYear },
@@ -293,7 +338,8 @@ io.on('connection', async (socket) => {
     // [이벤트] 대회 종료 (미완주자 일괄 완주 처리)
     socket.on('finish_race', async () => {
         try {
-            const now = new Date();
+            //const now = new Date();
+            const now = getKstDate(); // [변경]
             
             // [변경] RaceSetting에 종료 시간 기록
             await prisma.raceSetting.update({
@@ -335,7 +381,7 @@ io.on('connection', async (socket) => {
                     // 기록 저장
                     const updatedRunner = await prisma.trailRunner.update({
                         where: { id: runner.id },
-                        data: { finishTime: new Date() } // 공식 기록 필드에 저장
+                        data: { finishTime: getKstDate() } // [변경] new Date() 대신 적용
                     });
 
                     // [추가] 완주 알림 전송 (UI 팝업/토스트용) - update_ui와 분리하여 이벤트 발송
@@ -391,7 +437,9 @@ io.on('connection', async (socket) => {
 
         if (runner && runner.startTime) {
             const distance = getDistance(lat, lng, FINISH_LINE.lat, FINISH_LINE.lng);
-            const diffMinutes = (new Date() - new Date(runner.startTime)) / (1000 * 60);
+            // [변경] 현재 시간도 KST로 가져와서 비교해야 정확한 분 차이가 나옵니다.
+            const nowKst = getKstDate();
+            const diffMinutes = (nowKst - new Date(runner.startTime)) / (1000 * 60);
 
             socket.emit('distance_update', { distance: Math.round(distance) });
             
@@ -418,7 +466,7 @@ io.on('connection', async (socket) => {
             if (diffMinutes >= 30 && distance <= goalRadius && !runner.autoFinishTime) {
                 await prisma.trailRunner.update({
                     where: { id: runner.id },
-                    data: { autoFinishTime: new Date() } // 자동 기록 필드에 저장
+                    data: { autoFinishTime: getKstDate() } // [변경]
                 });
                 const newData = await getRaceData();
                 io.emit('update_ui', newData);
