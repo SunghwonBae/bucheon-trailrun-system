@@ -18,7 +18,6 @@ app.use(cors({
 
 const prisma = new PrismaClient();
 
-
 app.use(express.json());
 
 // todo 라우터
