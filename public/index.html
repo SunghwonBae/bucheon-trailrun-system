@@ -750,8 +750,8 @@
             tbody.innerHTML = '';
             runners.forEach((r, index) => {
                 // 경과 시간 계산 // [수정] getRealTime()을 사용하여 진짜 시간으로 변환 후 계산
-                const record = getRealTime(r.finishTime) - getRealTime(r.startTime);
-                const recordStr = record.toISOString().substr(11, 8); // HH:MM:SS 형식
+                const recordMs = getRealTime(r.finishTime) - getRealTime(r.startTime);
+                const recordStr = new Date(recordMs).toISOString().substr(11, 8); // HH:MM:SS 형식
 
                 const row = `<tr>
                     <td>${index + 1}</td>
