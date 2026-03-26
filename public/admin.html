@@ -260,6 +260,12 @@
             });
         }
 
+        // [추가] DB의 가짜 UTC 시간을 진짜 로컬 시간으로 변환해주는 함수
+        function getRealTime(dbDateString) {
+            if (!dbDateString) return null;
+            return new Date(new Date(dbDateString).getTime() - 9 * 60 * 60 * 1000);
+        }
+
         // [추가] 선수 위치 업데이트 처리
         socket.on('update_runner_map', (data) => {
             if (!map) return;
@@ -393,11 +399,18 @@
         }
 
         // 시간 포맷 함수 (HH:mm:ss)
-        function formatTime(dateStr, startTimeStr) {
-            if (!dateStr || !startTimeStr) return "-";
-            const diff = new Date(dateStr) - new Date(startTimeStr);
-            if (diff < 0) return "-";
-            return new Date(diff).toISOString().substr(11, 8);
+        // function formatTime(dateStr, startTimeStr) {
+        //     if (!dateStr || !startTimeStr) return "-";
+        //     const diff = new Date(dateStr) - new Date(startTimeStr);
+        //     if (diff < 0) return "-";
+        //     return new Date(diff).toISOString().substr(11, 8);
+        // }
+        // [수정 후] getRealTime 적용
+        function formatTime(finish, start) {
+            if (!finish || !start) return "-";
+            const diff = getRealTime(finish) - getRealTime(start); // [변경]
+            const d = new Date(diff);
+            return d.toISOString().substr(11, 8);
         }
 
         let runnersData = [];

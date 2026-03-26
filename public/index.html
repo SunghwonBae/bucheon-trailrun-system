@@ -518,6 +518,12 @@
             document.getElementById('juniorYearText').innerText = `${nextYy}년~`;
         }
 
+        // [추가] DB의 가짜 UTC 시간을 진짜 로컬 시간으로 변환해주는 함수
+        function getRealTime(dbDateString) {
+            if (!dbDateString) return null;
+            return new Date(new Date(dbDateString).getTime() - 9 * 60 * 60 * 1000);
+        }
+
         // 서버로부터 리셋 완료 신호를 받으면 화면 새로고침
         socket.on('race_reset_complete', () => {
             showToast("기록이 초기화되었습니다.");
@@ -528,9 +534,13 @@
         socket.on('race_status', (data) => {
             if (data.isStarted) {
                 document.getElementById('countdownOverlay').style.display = 'none'; // 대회 시작 시 카운트다운 숨김 보장
-                raceStartTime = new Date(data.startTime);
-                raceFinishTime = data.finishTime ? new Date(data.finishTime) : null; // [추가] 종료 시간 설정
+                //raceStartTime = new Date(data.startTime);
+                //raceFinishTime = data.finishTime ? new Date(data.finishTime) : null; // [추가] 종료 시간 설정
                 
+                // [수정] DB에 저장된 가짜 UTC(+9시간)를 브라우저 계산용 진짜 시간으로 되돌림 (-9시간)
+                raceStartTime = getRealTime(data.startTime);
+                raceFinishTime = data.finishTime ? getRealTime(data.finishTime) : null;
+
                 // 1. 버튼 비활성화 및 스타일 변경
                 const btn = document.getElementById('startBtn');
                 btn.disabled = true; // 클릭 불가
@@ -739,8 +749,8 @@
             const tbody = document.getElementById(elementId);
             tbody.innerHTML = '';
             runners.forEach((r, index) => {
-                // 경과 시간 계산
-                const record = new Date(new Date(r.finishTime) - new Date(r.startTime));
+                // 경과 시간 계산 // [수정] getRealTime()을 사용하여 진짜 시간으로 변환 후 계산
+                const record = getRealTime(r.finishTime) - getRealTime(r.startTime);
                 const recordStr = record.toISOString().substr(11, 8); // HH:MM:SS 형식
 
                 const row = `<tr>
@@ -758,15 +768,15 @@
             tbody.innerHTML = '';
             const totalCount = runners.length;
             runners.forEach((r, index) => {
-                // 공식 기록 계산
-                const manualRecord = r.finishTime ? 
-                    new Date(new Date(r.finishTime) - new Date(r.startTime)).toISOString().substr(11, 8) : "-";
+                // [수정] 공식 기록 계산 시 getRealTime() 적용
+                const manualRecord = r.finishTime && r.startTime ? 
+                    new Date(getRealTime(r.finishTime) - getRealTime(r.startTime)).toISOString().substr(11, 8) : "-";
                 
-                // 자동 기록 계산
-                const autoRecord = r.autoFinishTime ? 
-                    new Date(new Date(r.autoFinishTime) - new Date(r.startTime)).toISOString().substr(11, 8) : "-";
-
-                const row = `<tr>
+                // [수정] 자동 기록 계산 시 getRealTime() 적용
+                const autoRecord = r.autoFinishTime && r.startTime ? 
+                    new Date(getRealTime(r.autoFinishTime) - getRealTime(r.startTime)).toISOString().substr(11, 8) : "-";
+                
+                    const row = `<tr>
                     <td>${totalCount - index}</td>
                     <td>${r.bibNumber}</td>
                     <td>${r.name}</td>
